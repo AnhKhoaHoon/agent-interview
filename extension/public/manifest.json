@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Interview",
+  "description": "DevOps interview practice assistant.",
+  "version": "0.1.0",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "permissions": ["sidePanel", "activeTab", "tabCapture"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "action": {
+    "default_title": "Open Agent Interview"
+  }
+}
