@@ -1,4 +1,5 @@
 import { TabAudioCapture } from './tab-capture';
+import { normalizeRecordedAudioMimeType } from './audio-format';
 import { DEFAULT_VAD_CONFIGURATION, type VadConfiguration } from './vad-config';
 import { UtteranceSegmenter, type SegmenterEvent, type VadUiState } from './utterance-segmenter';
 
@@ -115,7 +116,9 @@ export class VadPipeline {
     this.pendingFinalization = undefined;
     this.activeSegment = undefined;
     const segment: FinalizedAudioSegment = {
-      audio: new Blob(active.chunks, { type: this.recorder?.mimeType || event.data.type }),
+      audio: new Blob(active.chunks, {
+        type: normalizeRecordedAudioMimeType(this.recorder?.mimeType || event.data.type)
+      }),
       startedAtMs: active.startedAtMs,
       speechEndedAtMs: pending.speechEndedAtMs,
       endedAtMs: pending.endedAtMs,

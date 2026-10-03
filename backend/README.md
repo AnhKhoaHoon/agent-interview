@@ -14,11 +14,14 @@ docker compose up --build
 
 The API is available at `http://localhost:3000/api/v1`; Swagger is at `http://localhost:3000/api/docs`.
 
-The default `LLM_PROVIDER=mock` needs no provider credential. To use OpenAI, set `LLM_PROVIDER=openai`, `LLM_API_KEY`, and `LLM_MODEL` in the uncommitted `.env` file.
+The default runtime path uses `LLM_PROVIDER=openai`; set `LLM_API_KEY` and
+`LLM_MODEL` in the uncommitted root `.env` file. The mock provider remains
+available only for deterministic automated tests or an explicitly selected
+offline development run.
 
-`STT_PROVIDER=mock` is also credential-free and returns a deterministic local
-transcript. To use the backend-only OpenAI STT implementation, set
-`STT_PROVIDER=openai`, `STT_API_KEY`, and optionally `STT_MODEL`. Raw audio is
+The default runtime path uses the backend-only OpenAI STT implementation; set
+`STT_PROVIDER=openai`, `STT_API_KEY`, and `STT_MODEL`. The mock STT provider is
+reserved for deterministic automated tests or explicit offline development. Raw audio is
 processed only for the request and is not persisted; Phase 5 publishes the
 transcript and Phase 6 automatically streams one correlated LLM answer. Failed
 answers can be retried through the interview API without re-uploading audio.

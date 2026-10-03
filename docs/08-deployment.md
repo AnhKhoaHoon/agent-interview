@@ -80,13 +80,20 @@ LOG_LEVEL
 
 ## Phase 1 LLM integration
 
-`LLM_PROVIDER=mock` is the credential-free local default. `LLM_PROVIDER=openai` uses the official OpenAI JavaScript SDK on the backend only, with the Responses API, `stream: true`, a configurable timeout, and `store: false`. The backend forwards only text deltas to the extension through its own SSE endpoint. See the [official OpenAI streaming guide](https://developers.openai.com/api/docs/guides/streaming-responses).
+The checked-in environment template selects `LLM_PROVIDER=openai` for real
+interview sessions. It uses the official OpenAI JavaScript SDK on the backend
+only, with the Responses API, `stream: true`, a configurable timeout, and
+`store: false`. The mock provider is reserved for automated tests or an
+explicitly selected offline run. The backend forwards only text deltas to the
+extension through its own SSE endpoint. See the [official OpenAI streaming
+guide](https://developers.openai.com/api/docs/guides/streaming-responses).
 
 ## Phase 5 STT integration
 
-`STT_PROVIDER=mock` is the credential-free local default. `STT_PROVIDER=openai`
-uses `STT_API_KEY` and `STT_MODEL` only in the NestJS process; never add either
-to the extension environment. Audio upload limits are configured through
+The checked-in environment template selects `STT_PROVIDER=openai` for real
+interview sessions. It uses `STT_API_KEY` and `STT_MODEL` only in the NestJS
+process; never add either to the extension environment. The mock provider is
+reserved for automated tests or an explicitly selected offline run. Audio upload limits are configured through
 `STT_MAX_AUDIO_BYTES` and `STT_MAX_DURATION_MS`. Reverse proxies must accept a
 request body at least as large as the configured audio limit.
 

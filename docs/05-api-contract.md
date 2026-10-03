@@ -68,6 +68,10 @@ Fields:
 - `speechEndedAtMs` (optional): client-observed epoch milliseconds used only to
   calculate latency
 
+MIME parameters emitted by browser recorders, for example
+`audio/webm;codecs=opus`, are normalized to their base type before validation.
+This does not broaden the supported base-type allowlist.
+
 Response:
 ```json
 {

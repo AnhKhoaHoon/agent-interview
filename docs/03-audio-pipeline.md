@@ -73,6 +73,11 @@ the raw bytes only for the request/provider call and never persists them. A
 successful result becomes an interviewer transcript and publishes
 `question.transcribed`.
 
+Chrome may report the recorder format as `audio/webm;codecs=opus`. The extension
+normalizes this to the container MIME type `audio/webm` before upload, and the
+backend independently strips MIME parameters before applying its allowlist.
+Unsupported base types remain rejected.
+
 ## Phase 6 answer handoff
 
 The finalized segment carries a client-generated `segmentId` for idempotency

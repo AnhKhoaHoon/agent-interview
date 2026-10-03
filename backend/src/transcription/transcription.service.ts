@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InterviewService } from '../interview/interview.service';
 import { SttProviderFactory } from './providers/stt-provider.factory';
-import { SUPPORTED_AUDIO_TYPES, transcriptionConfiguration } from './transcription.config';
+import { normalizeAudioContentType, SUPPORTED_AUDIO_TYPES, transcriptionConfiguration } from './transcription.config';
 
 export interface UploadedAudio {
   buffer: Buffer;
@@ -32,12 +32,13 @@ export class TranscriptionService {
     metadata: { segmentId?: string; speechEndedAtMs?: number } = {}
   ): Promise<TranscriptionResponse> {
     this.validateAudio(audio, durationMs);
-    if (!metadata.segmentId) return this.transcribeNew(interviewId, audio, durationMs, metadata);
+    const normalizedAudio = { ...audio, mimetype: normalizeAudioContentType(audio.mimetype) };
+    if (!metadata.segmentId) return this.transcribeNew(interviewId, normalizedAudio, durationMs, metadata);
 
     const key = `${interviewId}:${metadata.segmentId}`;
     const existing = this.transcriptionsBySegment.get(key);
     if (existing) return existing;
-    const operation = this.transcribeNew(interviewId, audio, durationMs, metadata);
+    const operation = this.transcribeNew(interviewId, normalizedAudio, durationMs, metadata);
     this.transcriptionsBySegment.set(key, operation);
     try {
       return await operation;
@@ -80,7 +81,7 @@ export class TranscriptionService {
   private validateAudio(audio: UploadedAudio | undefined, durationMs: number): asserts audio is UploadedAudio {
     const { maxAudioBytes, maxDurationMs } = transcriptionConfiguration();
     if (!audio) throw new BadRequestException({ code: 'AUDIO_FILE_REQUIRED', message: 'An audio file is required', retryable: false });
-    if (!SUPPORTED_AUDIO_TYPES.has(audio.mimetype)) {
+    if (!SUPPORTED_AUDIO_TYPES.has(normalizeAudioContentType(audio.mimetype))) {
       throw new BadRequestException({ code: 'AUDIO_TYPE_UNSUPPORTED', message: 'Unsupported audio content type', retryable: false });
     }
     if (audio.size === 0 || audio.buffer.length === 0) {
