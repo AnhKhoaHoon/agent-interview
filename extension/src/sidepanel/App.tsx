@@ -332,8 +332,13 @@ export function App(): JSX.Element {
       <ErrorBanner message={state.error} />
       <CaptureControls status={captureStatus} vadState={vadState} error={captureError} disabled={!session} onStart={() => void startCapture('picker')} onUseActiveTab={() => void startCapture()} onStop={() => void stopCapture()} />
       <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} />
-      {import.meta.env.DEV && <DevCaptureDiagnostics diagnostics={captureDiagnostics} lastSegmentDurationMs={lastSegmentDurationMs} lastSpeechEndToFirstAnswerMs={lastSpeechEndToFirstAnswerMs} />}
-      {import.meta.env.DEV && <DevQuestionForm disabled={formDisabled} onAsk={submitQuestion} />}
+      {import.meta.env.DEV && (
+        <details className="developer-tools">
+          <summary>Developer tools</summary>
+          <DevCaptureDiagnostics diagnostics={captureDiagnostics} lastSegmentDurationMs={lastSegmentDurationMs} lastSpeechEndToFirstAnswerMs={lastSpeechEndToFirstAnswerMs} />
+          <DevQuestionForm disabled={formDisabled} onAsk={submitQuestion} />
+        </details>
+      )}
     </div>
   );
 }

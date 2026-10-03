@@ -16,6 +16,10 @@ npm run build
 
 Start the backend separately with its local Docker Compose command before using the panel.
 
+The complete backend setup, generated extension ID/CORS handshake, end-to-end
+interview flow, production build requirements, and rollback procedure are in
+[the deployment and operation guide](../docs/08-deployment.md).
+
 ## Load in Chrome
 
 1. Open `chrome://extensions`.
@@ -48,10 +52,12 @@ tab** action keeps the direct `activeTab` path available. The extension
 immediately stops the picker-required display track and processes only the
 shared tab audio.
 
-The production Side Panel is chat-first. Session and audio operations are kept
-in compact button rows, while backend/audio details stay collapsed until
-opened. This reserves most of the available height for interviewer questions
-and streamed AI answers.
+The production Side Panel is chat-first. Session and audio operations use
+single-row compact controls with short labels and accessible descriptions,
+while backend/audio errors stay collapsed until opened. The conversation fills
+the remaining viewport height. Development diagnostics and the manual question
+form are grouped inside collapsed **Developer tools**, so they do not displace
+the chat during normal testing.
 
 The **Interview chat** panel remains visible even when capture cannot start.
 It shows whether the session is waiting or has messages; capture guidance is

@@ -61,6 +61,18 @@ contents.
 Phase 7 adds the boolean `isFollowUp` field to `answer.plan`, allowing follow-up
 behavior to be measured without logging interview text.
 
+### STT diagnostics
+
+The transcription path emits structured `stt.upload.received`,
+`stt.upload.rejected`, `stt.upload.deduplicated`, `stt.provider.started`,
+`stt.completed`, and `stt.failed` events. The OpenAI adapter additionally
+emits request start, completion, and failure events with a provider status/code
+when available. These events correlate through `requestId` and include only
+audio metadata (MIME type, byte size, duration, and transcript character
+count); they must never include audio bytes, transcript text, request headers,
+or provider credentials. Failed HTTP requests are emitted as
+`http.request_failed` with the same `requestId`.
+
 ## Tracing
 
 Optional initially.

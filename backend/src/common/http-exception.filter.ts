@@ -1,16 +1,19 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { MulterError } from 'multer';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const request = context.getRequest<Request>();
     const requestId = request.header('x-request-id') ?? randomUUID();
     if (exception instanceof MulterError && exception.code === 'LIMIT_FILE_SIZE') {
+      this.logFailure(request, requestId, HttpStatus.PAYLOAD_TOO_LARGE, 'AUDIO_FILE_TOO_LARGE', exception);
       response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
         code: 'AUDIO_FILE_TOO_LARGE',
         message: 'Audio file exceeds the maximum size',
@@ -23,12 +26,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const rawMessage = exception instanceof HttpException ? exception.getResponse() : 'Unexpected server error';
     const errorBody = typeof rawMessage === 'string' ? undefined : rawMessage as { code?: string; message?: string | string[]; retryable?: boolean };
     const message = typeof rawMessage === 'string' ? rawMessage : errorBody?.message;
+    const code = errorBody?.code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_INVALID');
+    this.logFailure(request, requestId, status, code, exception);
 
     response.status(status).json({
-      code: errorBody?.code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_INVALID'),
+      code,
       message: Array.isArray(message) ? message.join(', ') : (message ?? 'Request failed'),
       retryable: errorBody?.retryable ?? status >= 500,
       requestId
     });
+  }
+
+  private logFailure(request: Request, requestId: string, status: number, code: string, exception: unknown): void {
+    this.logger.warn(JSON.stringify({
+      event: 'http.request_failed',
+      requestId,
+      method: request.method,
+      path: request.originalUrl,
+      status,
+      code,
+      exception: exception instanceof Error ? exception.name : 'UnknownError'
+    }));
   }
 }

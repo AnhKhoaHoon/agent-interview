@@ -29,15 +29,32 @@ export class TranscriptionService {
     interviewId: string,
     audio: UploadedAudio | undefined,
     durationMs: number,
-    metadata: { segmentId?: string; speechEndedAtMs?: number } = {}
+    metadata: { segmentId?: string; speechEndedAtMs?: number; requestId?: string } = {}
   ): Promise<TranscriptionResponse> {
-    this.validateAudio(audio, durationMs);
+    try {
+      this.validateAudio(audio, durationMs);
+    } catch (error) {
+      this.logger.warn(JSON.stringify({
+        event: 'stt.upload.rejected',
+        requestId: metadata.requestId,
+        interviewId,
+        segmentId: metadata.segmentId,
+        durationMs,
+        audioPresent: Boolean(audio),
+        ...(audio ? { audioBytes: audio.size, mimeType: audio.mimetype } : {}),
+        ...this.errorDetails(error)
+      }));
+      throw error;
+    }
     const normalizedAudio = { ...audio, mimetype: normalizeAudioContentType(audio.mimetype) };
     if (!metadata.segmentId) return this.transcribeNew(interviewId, normalizedAudio, durationMs, metadata);
 
     const key = `${interviewId}:${metadata.segmentId}`;
     const existing = this.transcriptionsBySegment.get(key);
-    if (existing) return existing;
+    if (existing) {
+      this.logger.log(JSON.stringify({ event: 'stt.upload.deduplicated', requestId: metadata.requestId, interviewId, segmentId: metadata.segmentId }));
+      return existing;
+    }
     const operation = this.transcribeNew(interviewId, normalizedAudio, durationMs, metadata);
     this.transcriptionsBySegment.set(key, operation);
     try {
@@ -52,7 +69,7 @@ export class TranscriptionService {
     interviewId: string,
     audio: UploadedAudio,
     durationMs: number,
-    metadata: { segmentId?: string; speechEndedAtMs?: number }
+    metadata: { segmentId?: string; speechEndedAtMs?: number; requestId?: string }
   ): Promise<TranscriptionResponse> {
     this.interviews.transcriptionStarted(interviewId, durationMs);
     const startedAt = Date.now();
@@ -60,6 +77,16 @@ export class TranscriptionService {
     try {
       const provider = this.providers.getConfiguredProvider();
       providerName = provider.name;
+      this.logger.log(JSON.stringify({
+        event: 'stt.provider.started',
+        requestId: metadata.requestId,
+        interviewId,
+        segmentId: metadata.segmentId,
+        provider: providerName,
+        audioBytes: audio.size,
+        mimeType: audio.mimetype,
+        durationMs
+      }));
       const result = await provider.transcribe(audio.buffer, {
         durationMs,
         mimeType: audio.mimetype,
@@ -68,11 +95,33 @@ export class TranscriptionService {
       if (!result.text.trim()) throw new ServiceUnavailableException({ code: 'STT_EMPTY_RESULT', message: 'Speech provider returned no transcript', retryable: true });
       const message = this.interviews.recordTranscript(interviewId, result.text.trim(), metadata);
       const sttLatencyMs = Date.now() - startedAt;
-      this.logger.log(JSON.stringify({ event: 'stt.completed', interviewId, questionId: message.id, provider: result.provider, sttLatencyMs }));
+      this.logger.log(JSON.stringify({
+        event: 'stt.completed',
+        requestId: metadata.requestId,
+        interviewId,
+        questionId: message.id,
+        segmentId: metadata.segmentId,
+        provider: result.provider,
+        audioBytes: audio.size,
+        mimeType: audio.mimetype,
+        durationMs,
+        transcriptCharacterCount: result.text.trim().length,
+        sttLatencyMs
+      }));
       return { messageId: message.id, questionId: message.id, text: message.content, language: result.language, durationMs };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Speech transcription failed';
-      this.logger.error(JSON.stringify({ event: 'stt.failed', interviewId, provider: providerName, error: message }));
+      this.logger.error(JSON.stringify({
+        event: 'stt.failed',
+        requestId: metadata.requestId,
+        interviewId,
+        segmentId: metadata.segmentId,
+        provider: providerName,
+        audioBytes: audio.size,
+        mimeType: audio.mimetype,
+        durationMs,
+        sttLatencyMs: Date.now() - startedAt,
+        ...this.errorDetails(error)
+      }));
       if (error instanceof ServiceUnavailableException) throw error;
       throw new ServiceUnavailableException({ code: 'STT_TRANSCRIPTION_FAILED', message: 'Speech transcription failed', retryable: true });
     }
@@ -93,5 +142,16 @@ export class TranscriptionService {
     if (!Number.isInteger(durationMs) || durationMs < 1 || durationMs > maxDurationMs) {
       throw new BadRequestException({ code: 'AUDIO_DURATION_INVALID', message: 'Audio duration is outside the permitted range', retryable: false });
     }
+  }
+
+  private errorDetails(error: unknown): Record<string, string | number> {
+    const providerError = error as { status?: unknown; code?: unknown; type?: unknown };
+    return {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Speech transcription failed',
+      ...(typeof providerError.status === 'number' ? { providerStatus: providerError.status } : {}),
+      ...(typeof providerError.code === 'string' ? { providerCode: providerError.code } : {}),
+      ...(typeof providerError.type === 'string' ? { providerType: providerError.type } : {})
+    };
   }
 }

@@ -34,22 +34,22 @@ export function CaptureControls({ status, vadState, error, disabled = false, onS
     <section className={`capture-controls capture-${status}`} aria-label="Tab audio capture">
       <div className="capture-summary">
         <span className="capture-indicator" aria-hidden="true" />
-        <span><small>Interview audio</small><strong>{disabled ? 'Session required' : statusLabels[status]}</strong></span>
+        <strong>{disabled ? 'Start session first' : statusLabels[status]}</strong>
         {vadState && <span className="vad-state">{vadLabel}</span>}
       </div>
       <div className="capture-actions">
         {capturing ? (
-          <button className="button secondary capture-action compact-button" type="button" onClick={onStop}>Stop audio</button>
+          <button className="button secondary capture-action compact-button" type="button" onClick={onStop} aria-label="Stop interview audio capture" title="Stop interview audio capture">Stop</button>
         ) : (
           <>
-            <button className="button capture-action compact-button" type="button" onClick={onStart} disabled={disabled}>Start audio</button>
-            {!disabled && <button className="button ghost compact-button" type="button" onClick={onUseActiveTab}>Active tab</button>}
+            <button className="button capture-action compact-button" type="button" onClick={onStart} disabled={disabled} aria-label="Choose a tab and start audio capture" title="Choose a tab and start audio capture">Audio</button>
+            {!disabled && <button className="button ghost compact-button" type="button" onClick={onUseActiveTab} aria-label="Capture audio from the active tab" title="Capture audio from the active tab">Tab</button>}
           </>
         )}
       </div>
       {error && (
         <details className="capture-help">
-          <summary>View audio error</summary>
+          <summary>Audio error</summary>
           <p>{guidance ? 'Chrome did not authorize quick active-tab capture. Use Start capture and select the Meet tab in the picker.' : error}</p>
           {guidance && <code>{error}</code>}
         </details>

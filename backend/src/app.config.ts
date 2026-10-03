@@ -1,5 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { randomUUID } from 'node:crypto';
+import { NextFunction, Request, Response } from 'express';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
 export function configureApp(app: INestApplication): void {
@@ -8,6 +10,12 @@ export function configureApp(app: INestApplication): void {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const requestId = request.header('x-request-id') ?? randomUUID();
+    request.headers['x-request-id'] = requestId;
+    response.setHeader('x-request-id', requestId);
+    next();
+  });
   app.enableCors({ origin: origins, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

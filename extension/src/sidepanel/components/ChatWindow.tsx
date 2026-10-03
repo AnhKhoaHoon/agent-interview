@@ -24,12 +24,9 @@ export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetry
   return (
     <section className="conversation-panel" aria-label="Interview conversation">
       <header className="conversation-panel-header">
-        <div>
-          <span className="conversation-eyebrow">Live conversation</span>
-          <h2>Interview chat</h2>
-        </div>
+        <h2>Interview chat</h2>
         <span className={`conversation-state ${hasSession ? 'is-ready' : ''}`} aria-live="polite">
-          {messages.length ? `${messages.length} message${messages.length === 1 ? '' : 's'}` : hasSession ? 'Waiting' : 'Not started'}
+          {messages.length || (hasSession ? 'Live' : 'Off')}
         </span>
       </header>
       <div className="chat-window" ref={scrollContainerRef}>

@@ -21,16 +21,16 @@ export function Header({ status, hasSession, onStart, onStop }: HeaderProps): JS
       <div className="app-identity">
         <h1>Agent Interview</h1>
         <div className="header-meta">
-          <span className="role-chip">DevOps interview</span>
+          <span className="role-chip">DevOps</span>
           <span className={`header-status status-${status}`} aria-live="polite">
             <span className="status-dot" aria-hidden="true" />{labels[status]}
           </span>
         </div>
       </div>
       {hasSession ? (
-        <button className="button secondary compact-button" type="button" onClick={onStop}>End</button>
+        <button className="button secondary compact-button" type="button" onClick={onStop} aria-label="End interview session">End</button>
       ) : (
-        <button className="button compact-button" type="button" onClick={onStart} disabled={status === 'thinking'}>Start session</button>
+        <button className="button compact-button" type="button" onClick={onStart} disabled={status === 'thinking'}>Start</button>
       )}
     </header>
   );
