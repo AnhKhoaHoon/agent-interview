@@ -4,6 +4,9 @@ This guide covers the currently supported local deployment, Chrome Extension
 installation, end-to-end operation, verification, and the required path toward
 a staging or production deployment.
 
+For a Linux-first command-by-command setup guide, see
+[RUN_LINUX.md](../RUN_LINUX.md).
+
 ## Current deployment status
 
 The implemented product currently reaches Phase 11 of the roadmap:

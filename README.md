@@ -56,9 +56,10 @@ To produce a loadable extension, run `npm ci && npm run build` from
 `extension/`, then load `extension/dist` as an unpacked extension in
 `chrome://extensions`.
 
-For the complete environment setup, provider configuration, CORS handshake,
-end-to-end usage, production prerequisites, smoke test, and rollback procedure,
-follow [the deployment and operation guide](docs/08-deployment.md).
+Để chạy trên Linux, xem [hướng dẫn chạy Linux bằng tiếng Việt](RUN_LINUX.md).
+Để xem environment setup đầy đủ, provider configuration, CORS handshake,
+production prerequisites, smoke test, và rollback procedure, xem
+[deployment and operation guide](docs/08-deployment.md).
 
 ## Read order
 
@@ -76,3 +77,5 @@ follow [the deployment and operation guide](docs/08-deployment.md).
 12. `docs/11-runbook.md`
 13. `docs/12-release-checklist.md`
 14. `docs/13-roadmap.md`
+15. `docs/14-devops-role-spec.md`
+16. `docs/15-codex-claude-prompts.md`
