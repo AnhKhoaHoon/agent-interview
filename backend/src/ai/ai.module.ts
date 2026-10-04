@@ -3,7 +3,6 @@ import { QuestionClassifierService } from './classifier/question-classifier.serv
 import { ContextBuilderService } from './context/context-builder.service';
 import { PromptBuilderService } from './prompt/prompt-builder.service';
 import { LlmProviderFactory } from './providers/llm-provider.factory';
-import { MockLlmProvider } from './providers/mock-llm.provider';
 import { OpenAiLlmProvider } from './providers/openai-llm.provider';
 import { AnswerValidatorService } from './validator/answer-validator.service';
 import { TranscriptNormalizerService } from './normalizer/transcript-normalizer.service';
@@ -16,7 +15,6 @@ import { InterviewAnswerQualityService } from './quality/interview-answer-qualit
     QuestionClassifierService,
     ContextBuilderService,
     PromptBuilderService,
-    MockLlmProvider,
     OpenAiLlmProvider,
     LlmProviderFactory,
     AnswerValidatorService,

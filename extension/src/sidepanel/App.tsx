@@ -4,10 +4,10 @@ import { VadPipeline, type FinalizedAudioSegment } from '../audio/vad-pipeline';
 import type { VadUiState } from '../audio/utterance-segmenter';
 import { ApiClientError } from '../api/client';
 import { askQuestion, createInterview, endInterview, eventStreamUrl, retryAnswer as requestAnswerRetry, uploadTranscription } from '../api/interview.api';
-import { connectInterviewEvents } from '../realtime/sse-client';
+import { connectInterviewEvents, type SseConnection } from '../realtime/sse-client';
 import { initialPanelState, interviewReducer } from '../state/interview.reducer';
 import type { InterviewEvent } from '../types/events';
-import type { InterviewSession } from '../types/interview';
+import type { InterviewSession, TranscriptionLanguage } from '../types/interview';
 import { ChatWindow } from './components/ChatWindow';
 import { CaptureControls } from './components/CaptureControls';
 import { DevCaptureDiagnostics } from './components/DevCaptureDiagnostics';
@@ -16,7 +16,17 @@ import { ErrorBanner } from './components/ErrorBanner';
 import { Header } from './components/Header';
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) return error.response.message;
+  if (error instanceof ApiClientError) {
+    const transcriptionGuidance: Record<string, string> = {
+      STT_EMPTY_RESULT: 'No speech was recognized. Select the interview tab in the picker, enable Share tab audio, then let the interviewer speak and retry.',
+      STT_AUDIO_REJECTED: 'The speech service could not read this audio segment. Stop and start audio capture, then retry.',
+      STT_CREDENTIALS_REJECTED: 'The backend speech-service credential was rejected. Update STT_API_KEY on the backend and restart it.',
+      STT_RATE_LIMITED: 'The speech service is temporarily rate-limited. Wait briefly, then retry transcription.',
+      AUDIO_FILE_EMPTY: 'The captured segment was empty. Confirm that the selected interview tab is sharing audio, then retry.',
+      AUDIO_TYPE_UNSUPPORTED: 'The captured audio format is unsupported. Reload the Agent Interview extension, start capture again, and retry.'
+    };
+    return transcriptionGuidance[error.response.code] ?? error.response.message;
+  }
   if (error instanceof Error) return error.message;
   return 'The backend connection failed.';
 }
@@ -44,7 +54,7 @@ export function App(): JSX.Element {
   const [state, dispatch] = useReducer(interviewReducer, initialPanelState);
   const [session, setSession] = useState<InterviewSession>();
   const sessionRef = useRef<InterviewSession>();
-  const sourceRef = useRef<EventSource>();
+  const sourceRef = useRef<SseConnection>();
   const activeAnswerIdsRef = useRef(new Set<string>());
   const retryingAnswerIdsRef = useRef(new Set<string>());
   const speechEndedAtByQuestionIdRef = useRef(new Map<string, number>());
@@ -58,6 +68,10 @@ export function App(): JSX.Element {
   const [vadState, setVadState] = useState<VadUiState>();
   const [lastSegmentDurationMs, setLastSegmentDurationMs] = useState<number>();
   const [lastSpeechEndToFirstAnswerMs, setLastSpeechEndToFirstAnswerMs] = useState<number>();
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState<TranscriptionLanguage>('vi');
+  const transcriptionLanguageRef = useRef<TranscriptionLanguage>('vi');
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [speechThreshold, setSpeechThreshold] = useState(0);
   const pipelineRef = useRef<VadPipeline>();
   const pendingSegmentsRef = useRef(new Map<string, FinalizedAudioSegment>());
 
@@ -80,7 +94,11 @@ export function App(): JSX.Element {
     sourceRef.current = undefined;
   }, []);
 
-  const sendSegmentForTranscription = useCallback(async (temporaryId: string, segment: FinalizedAudioSegment) => {
+  const sendSegmentForTranscription = useCallback(async (
+    temporaryId: string,
+    segment: FinalizedAudioSegment,
+    language: TranscriptionLanguage
+  ) => {
     const activeSession = sessionRef.current;
     if (!activeSession) {
       pendingSegmentsRef.current.delete(temporaryId);
@@ -89,7 +107,9 @@ export function App(): JSX.Element {
     }
     try {
       const speechEndedAtMs = toEpochMs(segment.speechEndedAtMs);
-      const transcript = await uploadTranscription(activeSession.id, segment.audio, segment.durationMs, temporaryId, speechEndedAtMs);
+      const transcript = await uploadTranscription(
+        activeSession.id, segment.audio, segment.durationMs, temporaryId, speechEndedAtMs, language, activeSession.accessToken
+      );
       speechEndedAtByQuestionIdRef.current.set(transcript.questionId, speechEndedAtMs);
       pendingSegmentsRef.current.delete(temporaryId);
       dispatch({
@@ -108,22 +128,27 @@ export function App(): JSX.Element {
     const temporaryId = crypto.randomUUID();
     pendingSegmentsRef.current.set(temporaryId, segment);
     dispatch({ type: 'transcribing', temporaryId });
-    void sendSegmentForTranscription(temporaryId, segment);
+    void sendSegmentForTranscription(temporaryId, segment, transcriptionLanguageRef.current);
   }, [sendSegmentForTranscription]);
 
   const retryTranscription = useCallback((temporaryId: string) => {
     const segment = pendingSegmentsRef.current.get(temporaryId);
     if (!segment) return;
     dispatch({ type: 'transcribing', temporaryId });
-    void sendSegmentForTranscription(temporaryId, segment);
+    void sendSegmentForTranscription(temporaryId, segment, transcriptionLanguageRef.current);
   }, [sendSegmentForTranscription]);
+
+  const changeTranscriptionLanguage = useCallback((language: TranscriptionLanguage) => {
+    transcriptionLanguageRef.current = language;
+    setTranscriptionLanguage(language);
+  }, []);
 
   const retryAnswer = useCallback(async (questionId: string) => {
     const activeSession = sessionRef.current;
     if (!activeSession || retryingAnswerIdsRef.current.has(questionId)) return;
     retryingAnswerIdsRef.current.add(questionId);
     try {
-      await requestAnswerRetry(activeSession.id, questionId);
+      await requestAnswerRetry(activeSession.id, activeSession.accessToken, questionId);
     } catch (error) {
       dispatch({ type: 'error', message: `Answer retry failed: ${errorMessage(error)}` });
     } finally {
@@ -200,10 +225,10 @@ export function App(): JSX.Element {
     }
   }, []);
 
-  const connect = useCallback((interviewId: string) => {
+  const connect = useCallback((interviewId: string, accessToken: string) => {
     closeEventSource();
     pipelineRef.current?.stop();
-    sourceRef.current = connectInterviewEvents(eventStreamUrl(interviewId), {
+    sourceRef.current = connectInterviewEvents(eventStreamUrl(interviewId), accessToken, {
       onOpen: () => {
         if (activeAnswerIdsRef.current.size === 0) dispatch({ type: 'connected' });
       },
@@ -218,7 +243,7 @@ export function App(): JSX.Element {
       const createdSession = await createInterview();
       sessionRef.current = createdSession;
       setSession(createdSession);
-      connect(createdSession.id);
+      connect(createdSession.id, createdSession.accessToken);
     } catch (error) {
       dispatch({ type: 'error', message: errorMessage(error) });
     }
@@ -236,37 +261,45 @@ export function App(): JSX.Element {
     setCaptureStatus('stopped');
     setCaptureDiagnostics(captureRef.current?.diagnostics() ?? { streamActive: false, audioTrackState: 'unavailable' });
     setVadState(undefined);
+    setAudioLevel(0);
+    setSpeechThreshold(0);
     setSession(undefined);
     sessionRef.current = undefined;
     dispatch({ type: 'reset' });
     if (!interviewId) return;
     try {
-      await endInterview(interviewId);
+      if (session?.accessToken) await endInterview(interviewId, session.accessToken);
     } catch (error) {
       dispatch({ type: 'error', message: `Session stopped locally. ${errorMessage(error)}` });
     }
-  }, [closeEventSource, session?.id]);
+  }, [closeEventSource, session?.accessToken, session?.id]);
 
   const submitQuestion = useCallback(async (question: string) => {
     if (!session) return;
     try {
       dispatch({ type: 'thinking' });
-      const result = await askQuestion(session.id, question);
+      const result = await askQuestion(session.id, session.accessToken, question, transcriptionLanguage);
       dispatch({ type: 'add-question', message: { id: result.questionId, role: 'interviewer', content: question } });
     } catch (error) {
       dispatch({ type: 'error', message: errorMessage(error) });
     }
-  }, [session]);
+  }, [session, transcriptionLanguage]);
 
   const startCapture = useCallback(async (source: 'active-tab' | 'picker' = 'active-tab') => {
     try {
       setCaptureError(undefined);
+      setAudioLevel(0);
+      setSpeechThreshold(0);
       const activeCapture = source === 'picker'
         ? await captureRef.current!.startWithPicker()
         : await captureRef.current!.start();
       pipelineRef.current?.stop();
       pipelineRef.current = new VadPipeline(captureRef.current!, {
         onStateChange: setVadState,
+        onAudioLevel: (level, threshold) => {
+          setAudioLevel(level);
+          setSpeechThreshold(threshold);
+        },
         onSegment: (segment) => {
           setLastSegmentDurationMs(segment.durationMs);
           if (import.meta.env.DEV) console.info('[Agent Interview] finalized utterance segment', { durationMs: Math.round(segment.durationMs) });
@@ -277,7 +310,7 @@ export function App(): JSX.Element {
           setCaptureError(error.message);
         }
       });
-      pipelineRef.current.start();
+      await pipelineRef.current.start();
       setCaptureDiagnostics(activeCapture.diagnostics);
       setCaptureStatus('listening');
     } catch (error) {
@@ -294,8 +327,14 @@ export function App(): JSX.Element {
     await captureRef.current!.stop();
     setCaptureDiagnostics(captureRef.current!.diagnostics());
     setCaptureError(undefined);
+    setAudioLevel(0);
+    setSpeechThreshold(0);
     setCaptureStatus('stopped');
     setVadState(undefined);
+  }, []);
+
+  const finishCurrentQuestion = useCallback(() => {
+    pipelineRef.current?.finishCurrentUtterance();
   }, []);
 
   useEffect(() => {
@@ -328,9 +367,29 @@ export function App(): JSX.Element {
   const formDisabled = !session || state.status === 'thinking' || state.status === 'streaming';
   return (
     <div className="app-shell">
-      <Header status={state.status} hasSession={Boolean(session)} onStart={() => void startSession()} onStop={() => void stopSession()} />
+      <Header
+        status={state.status}
+        hasSession={Boolean(session)}
+        onStart={() => void startSession()}
+        onStop={() => void stopSession()}
+        controls={(
+          <CaptureControls
+            status={captureStatus}
+            vadState={vadState}
+            error={captureError}
+            disabled={!session}
+            language={transcriptionLanguage}
+            onLanguageChange={changeTranscriptionLanguage}
+            audioLevel={audioLevel}
+            speechThreshold={speechThreshold}
+            onFinishQuestion={finishCurrentQuestion}
+            onStart={() => void startCapture('picker')}
+            onUseActiveTab={() => void startCapture()}
+            onStop={() => void stopCapture()}
+          />
+        )}
+      />
       <ErrorBanner message={state.error} />
-      <CaptureControls status={captureStatus} vadState={vadState} error={captureError} disabled={!session} onStart={() => void startCapture('picker')} onUseActiveTab={() => void startCapture()} onStop={() => void stopCapture()} />
       <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} />
       {import.meta.env.DEV && (
         <details className="developer-tools">

@@ -2,7 +2,9 @@
 
 ## interviews
 
-Phase 1 uses an in-memory implementation of this model. PostgreSQL tables and migrations are introduced in Phase 8.
+Phase 8 uses PostgreSQL as the runtime source of truth. Migration state is
+recorded in `schema_migrations`; `npm run db:migrate` applies pending files in
+lexical order under an advisory lock.
 
 - id UUID PK
 - role VARCHAR
@@ -19,7 +21,10 @@ Phase 1 uses an in-memory implementation of this model. PostgreSQL tables and mi
 - content TEXT
 - status VARCHAR
 - sequence_no INTEGER
+- question_id UUID FK, nullable for interviewer messages
+- speech_ended_at_ms BIGINT, nullable
 - created_at TIMESTAMP
+- updated_at TIMESTAMP
 
 Roles:
 - interviewer
@@ -30,6 +35,7 @@ Roles:
 - id UUID PK
 - interview_id UUID FK
 - message_id UUID FK
+- segment_id UUID, unique per interview when present
 - provider VARCHAR
 - language VARCHAR
 - duration_ms INTEGER
@@ -43,9 +49,13 @@ Roles:
 - provider VARCHAR
 - model VARCHAR
 - prompt_version VARCHAR
+- context_snapshot JSONB
 - first_token_ms INTEGER
 - total_latency_ms INTEGER
 - token_count INTEGER
+- speech_end_to_first_answer_ms INTEGER
+- started_at TIMESTAMP
+- completed_at TIMESTAMP
 - created_at TIMESTAMP
 
 ## candidate_profiles (later)
@@ -62,14 +72,16 @@ Roles:
 - content
 - extracted_json JSONB
 
-## knowledge_documents (RAG later)
+## knowledge_documents (Phase 10)
 
 - id UUID
 - role
 - category
-- source
+- source_path (unique)
+- source_hash
 - version
 - content
+- indexed_at
 
 ## knowledge_chunks
 
@@ -79,6 +91,13 @@ Roles:
 - embedding VECTOR
 - metadata JSONB
 
+Chunks are tied to a source document and deleted/replaced atomically when that
+source changes. They contain curated knowledge only, never raw interview audio
+or candidate data.
+
 ## Raw audio
 
 Do not store by default.
+
+The Phase 8 schema stores transcript text and answer text, but never uploaded
+audio bytes. Audio exists only in memory for the transcription request.

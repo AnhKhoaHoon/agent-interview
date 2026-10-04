@@ -2,6 +2,12 @@
 
 ## Core metrics
 
+The protected `/api/v1/metrics` endpoint exports Prometheus process/runtime
+metrics plus HTTP request counts and latency histograms. Route labels use route
+templates rather than interview UUIDs to avoid unbounded cardinality. Configure
+the scraper with `METRICS_BEARER_TOKEN`; never expose that credential to the
+extension.
+
 ### Product latency
 - audio_segment_duration_ms
 - stt_latency_ms
@@ -60,6 +66,16 @@ contents.
 
 Phase 7 adds the boolean `isFollowUp` field to `answer.plan`, allowing follow-up
 behavior to be measured without logging interview text.
+
+Phase 8 persists `transcriptions.latency_ms`,
+`ai_responses.first_token_ms`, `ai_responses.total_latency_ms`, and
+`ai_responses.speech_end_to_first_answer_ms`. Structured logs remain the source
+for request-level failures; PostgreSQL records support historical latency
+analysis without retaining raw audio.
+
+Phase 9 adds `http.request_completed` structured events with request ID,
+method, path, status, and duration. Authorization headers, bearer tokens,
+provider keys, prompts, transcripts, and audio contents are excluded.
 
 ### STT diagnostics
 

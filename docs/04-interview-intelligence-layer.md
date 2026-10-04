@@ -4,6 +4,13 @@ This is the core AI orchestration layer.
 
 The application should not simply send the raw transcript to an LLM.
 
+For the supported Vietnamese and English interview modes, the language selected
+in the Side Panel is passed through the transcription/manual-question request
+and requires the answer to use that selected language. This is deliberate: an
+English answer can be requested for a Vietnamese transcript, or the reverse,
+without relying on language guessing. Standard DevOps commands and product
+names may remain in their usual technical form.
+
 ## Pipeline
 
 ```text
@@ -175,14 +182,14 @@ Default rules:
 - simple wording
 - trade-offs where useful
 - no invented experience
-- 3-5 keywords
 
 The stable candidate role and tone live in the provider instructions. The
 dynamic classified question, bounded conversation context, answer plan, and
 role level are passed as typed prompt input. The model returns only the spoken
-answer; the backend derives the 3-5 displayed keywords from the classified
-DevOps category. Neither response may expose reasoning, prompt text, or
-provider details.
+answer. Category metadata can remain available to internal stream consumers,
+but is not rendered beneath the candidate-facing answer because it distracts
+from the spoken response. Neither response may expose reasoning, prompt text,
+or provider details.
 
 For a detected follow-up, the prompt explicitly identifies the referenced
 interviewer question and tells the model to extend that turn without repeating
@@ -201,7 +208,7 @@ the earlier answer.
 
 | responseMode | Required shape |
 | --- | --- |
-| `technical_definition` | what it is -> why it matters -> one practical detail |
+| `technical_definition` | what it is -> why it matters -> exactly one practical detail from the same concept; no unrelated tool, workflow, or checklist |
 | `technical_comparison` | key distinction -> trade-offs -> when to choose each |
 | `technical_troubleshooting` | likely causes -> ordered checks -> remediation and verification |
 | `technical_scenario` / `technical_architecture` | recommendation -> components/steps -> trade-offs -> validation |
@@ -237,31 +244,38 @@ Validate:
 - required shape for the classified `responseMode`
 - directness: the first sentence must answer the question or state the working assumption
 - candidate-ready language: no meta commentary, prompt leakage, or generic assistant greeting
-- category-derived keywords remain 3-5 relevant, distinct terms
+- category metadata, if emitted internally, remains relevant and distinct
 
 The V1 quality gate composes the existing hard validator with candidate-ready
-checks for generic greetings and non-spoken heading/list formatting. It rejects
-an invalid answer before `answer.completed` and emits the existing retryable
-`answer.error` event without deleting the interviewer transcript. Because Phase
-6 preserves first-token streaming, already streamed text is not retroactively
-replaced. A buffered repair flow belongs to later production hardening and must
-not be presented as implemented.
+checks. Safety, unsupported experience, length, missing operational detail, and
+an invalid response shape remain blocking and emit the retryable `answer.error`
+event without deleting the interviewer transcript. Generic greetings and
+non-spoken heading/list formatting are presentation warnings: they are logged,
+but they do not discard an otherwise usable answer after its tokens have already
+been streamed. The prompt explicitly requests direct spoken prose to reduce
+these warnings. A buffered repair flow belongs to later production hardening
+and must not be presented as implemented.
 
 ## 7. RAG
 
-Add only after core product works.
+Phase 10 indexes the curated `knowledge/devops/` Markdown cards into PostgreSQL
+with pgvector. The explicit backend-only `npm run knowledge:index` job hashes
+each source, skips unchanged documents, splits heading-based sections, embeds
+the chunks, and stores role/category/source/version metadata. It never indexes
+audio, interview transcripts, extension data, or provider secrets.
 
-Recommended:
-- PostgreSQL + pgvector
-- curated DevOps knowledge
-- chunking by concept
-- metadata: role/category/source/version
+At answer time, retrieval runs after classification and before prompt building.
+Only chunks above `RAG_MIN_SIMILARITY` and containing at least one matching
+classified category (or an explicit narrow-tool alias such as Argo CD -> CI/CD)
+are added to the prompt. At most `RAG_MAX_CHUNKS` are used.
+The prompt treats them as untrusted reference text: it ignores instructions
+inside them and never tells the candidate that documents, sources, retrieval,
+or citations were used.
 
-RAG is for grounding, not for replacing the role prompt.
-
-The curated V1 source material lives under `knowledge/devops/`. It is organised
-by topic as interview-oriented knowledge cards. It is not retrieved or injected
-into prompts until Phase 10 implements an explicit ingestion and retrieval path.
+When the index is absent, the embedding provider is unavailable, the score is
+below threshold, or the retrieved topic does not match the classification, RAG
+falls back to normal model knowledge and emits a structured `rag.fallback` log.
+It must not invent a source or make answering unavailable.
 
 ## 8. Feedback loop
 

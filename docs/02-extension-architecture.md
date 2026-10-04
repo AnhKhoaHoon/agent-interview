@@ -75,7 +75,9 @@ Phase 3 capture state is independent of chat state and uses: `requesting_permiss
 - The development API origin is a narrowly scoped host permission for `http://localhost:3000/*`.
 - `VITE_API_BASE_URL` configures the extension API base URL. It is not a provider-key mechanism; provider keys remain backend-only.
 - The development-only manual question form is excluded from production Vite builds.
-- The EventSource is closed on component unmount and when the user ends a session.
+- The authenticated SSE fetch is aborted on component unmount and when the user
+  ends a session. It reconnects with the in-memory interview token after an
+  unexpected disconnect.
 - Chat auto-scrolls only when the reader is within 72px of the bottom.
 
 ## Phase 3 capture behavior
@@ -89,14 +91,22 @@ Phase 3 capture state is independent of chat state and uses: `requesting_permiss
 ## Phase 4 VAD and segmentation
 
 - Voice activity state is shown independently as `Listening`, `Speech detected`, and `Finalizing`.
+- While `Speech detected` is active, **Finish** is an explicit end-of-question action. It finalizes only the current utterance and leaves selected-tab capture running for the next question; the automatic silence timeout remains the fallback.
 - A finalized in-memory audio segment is emitted once per utterance. It is not sent to the backend in this phase.
+- The runtime retains bounded mono PCM frames for pre-roll and emits a
+  self-contained WAV file through a packaged `AudioWorklet`. It does not use
+  deprecated `ScriptProcessorNode` or concatenate dependent WebM timeslice
+  chunks, because later chunks may not contain a valid container header.
 - The segmenter blocks a new utterance while the current segment flushes, preventing overlapping finalization.
 - Development diagnostics may show only the finalized segment duration; never log audio data or contents.
 
 ## Phase 5 transcription behavior
 
 - Each finalized Blob is uploaded once to `POST /api/v1/interviews/:id/transcriptions`
-  with its duration in milliseconds.
+  with its duration in milliseconds and the visible per-segment language hint:
+  **Tiếng Việt** or **English**. The selection contains no provider credential
+  and can change for the next utterance without restarting capture. The same
+  selected mode explicitly determines the AI answer language for that turn.
 - The extension immediately renders a temporary interviewer bubble labelled
   `Transcribing…`; the final transcript replaces that bubble when the request
   succeeds.
@@ -136,8 +146,11 @@ The extension must:
 
 ## Capture UX and recovery
 
-- The capture control presents a compact tab-audio status card with its current
-  state, clear primary action, and voice activity when listening.
+- Session, selected-tab audio, language, sound-meter, and stop/finish actions
+  share one compact application header. This leaves the remaining Side Panel
+  height to the live conversation while keeping capture state visible.
+- The same card keeps the transcription language visible. **Tiếng Việt** sends
+  `vi` and **English** sends `en` for each newly finalized segment.
 - Capture is unavailable until an interview session exists, preventing a local
   segment that cannot be associated with a backend interview.
 - An `activeTab`/Chrome-page failure must be explained in user terms: activate
@@ -147,9 +160,10 @@ The extension must:
   Chrome picker fallback. The user must select the interview tab and enable
   **Share tab audio**. This path never processes its required display track:
   it stops it immediately and uses only the selected tab's audio track.
-- The user-mediated Chrome picker is the primary **Start capture** action in
+- The user-mediated Chrome picker is the primary compact **Audio** action in
   the Side Panel because its authorization is explicit and visible. Direct
-  `activeTab` capture remains available as a compact **Use active tab** shortcut.
+  `activeTab` capture remains available as the smaller **Tab** shortcut. Both
+  retain descriptive accessible labels and tooltips despite their short text.
 - Session state is shown as a compact header badge. Backend and audio errors use
   separate cards, and technical capture details are collapsed so the interview
   conversation remains the dominant panel region.
@@ -160,8 +174,10 @@ The extension must:
 - The empty chat state distinguishes a session that has not started from a
   connected session waiting for the first interviewer utterance.
 - The conversation region is always a distinct bordered **Interview chat**
-  panel. Its header shows `Not started`, `Waiting`, or the number of messages,
-  so capture errors never make the conversation area look absent.
+  panel. Its compact header shows `Off`, `Live`, or the number of messages, so
+  capture errors never make the conversation area look absent.
+- Development diagnostics and the manual question form live inside a collapsed
+  **Developer tools** disclosure and do not consume normal chat height.
 - Before the first real turn, the panel renders non-interactive interviewer and
   AI-answer preview bubbles. They explain the conversation layout without
   creating a fake message or calling the backend. Real bubbles show whether a
@@ -190,7 +206,7 @@ Terraform • State • Backend • Locking
 
 Development-only controls may include:
 - manual question field
-- mock audio
+- synthetic test audio
 - latency metrics
 - current session id
 - provider status

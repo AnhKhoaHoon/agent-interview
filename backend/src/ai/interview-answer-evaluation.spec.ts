@@ -1,9 +1,9 @@
 import { Classification } from './contracts';
 import { InterviewAnswerPlannerService } from './planner/interview-answer-planner.service';
 import { PromptBuilderService } from './prompt/prompt-builder.service';
-import { MockLlmProvider } from './providers/mock-llm.provider';
 import { InterviewAnswerQualityService } from './quality/interview-answer-quality.service';
 import { AnswerValidatorService } from './validator/answer-validator.service';
+import { DeterministicTestLlmProvider } from '../../test/support/deterministic-test-llm.provider';
 
 interface EvaluationCase {
   question: string;
@@ -23,7 +23,7 @@ const cases: EvaluationCase[] = [
 describe('DevOps interview answer evaluation', () => {
   const planner = new InterviewAnswerPlannerService();
   const promptBuilder = new PromptBuilderService();
-  const provider = new MockLlmProvider();
+  const provider = new DeterministicTestLlmProvider();
   const quality = new InterviewAnswerQualityService(new AnswerValidatorService());
 
   it.each(cases)('produces a candidate-ready theory-to-practice answer for $classification.type', async ({ question, classification }) => {

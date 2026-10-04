@@ -50,6 +50,12 @@ export class UtteranceSegmenter {
     return this.observe(false, nowMs);
   }
 
+  /** Explicitly ends the current interviewer turn after the user confirms it is complete. */
+  finishCurrentUtterance(nowMs: number): SegmenterEvent[] {
+    if (this.state !== 'speech_detected') return [];
+    return this.beginFinalization(nowMs);
+  }
+
   completeFinalization(): void {
     if (this.state !== 'finalizing' || !this.emittedReady) return;
     this.state = 'listening';

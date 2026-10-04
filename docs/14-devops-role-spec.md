@@ -45,9 +45,8 @@ V1 default:
 Default:
 - direct
 - practical
-- 60-120 words
-- 20-30 seconds spoken
-- 3-5 keywords
+- definition: 40-85 words, roughly 15-25 seconds spoken
+- other technical modes: use the mode-specific word range and depth
 - candidate-ready: confident but accurate, using plain spoken English
 - state a recommendation before supporting detail
 - mention a trade-off or verification step where it improves the answer
@@ -69,8 +68,13 @@ This calibration changes the depth of technical reasoning, not the truthfulness 
 
 1. What it is
 2. Why it is used
-3. one real configuration, check, metric, or operational caveat
-4. how to validate that it works
+3. exactly one real configuration, check, metric, or operational caveat
+
+Do not append an unrelated deployment, observability, or troubleshooting
+checklist to a definition answer. For Docker, distinguish an image from a
+running container; image tags are mutable references even when a release uses
+an immutable digest. If the interviewer asks only “Docker là gì?”, do not
+introduce CI/CD, registries, Kubernetes, or deployment workflows.
 
 ## Comparison structure
 

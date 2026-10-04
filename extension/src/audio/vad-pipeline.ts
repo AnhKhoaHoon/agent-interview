@@ -1,5 +1,5 @@
-import { TabAudioCapture } from './tab-capture';
-import { normalizeRecordedAudioMimeType } from './audio-format';
+import { TabAudioCapture, type PcmTap } from './tab-capture';
+import { encodeMonoPcm16Wave } from './pcm-wave';
 import { DEFAULT_VAD_CONFIGURATION, type VadConfiguration } from './vad-config';
 import { UtteranceSegmenter, type SegmenterEvent, type VadUiState } from './utterance-segmenter';
 
@@ -13,29 +13,32 @@ export interface FinalizedAudioSegment {
 
 export interface VadPipelineCallbacks {
   onStateChange: (state: VadUiState) => void;
+  onAudioLevel: (level: number, speechThreshold: number) => void;
   onSegment: (segment: FinalizedAudioSegment) => void;
   onError: (error: Error) => void;
 }
 
 interface ActiveSegment {
   startedAtMs: number;
-  chunks: Blob[];
+  chunks: Float32Array[];
 }
 
-interface TimedChunk {
+interface TimedPcmChunk {
   endedAtMs: number;
-  data: Blob;
+  samples: Float32Array;
 }
 
 export class VadPipeline {
   private readonly segmenter: UtteranceSegmenter;
   private analyser?: AnalyserNode;
-  private recorder?: MediaRecorder;
+  private pcmTap?: PcmTap;
   private sampleBuffer?: Uint8Array<ArrayBuffer>;
   private intervalId?: number;
   private activeSegment?: ActiveSegment;
-  private preRollChunks: TimedChunk[] = [];
-  private pendingFinalization?: { startedAtMs: number; speechEndedAtMs: number; endedAtMs: number };
+  private preRollChunks: TimedPcmChunk[] = [];
+  private finalizing = false;
+  private noiseFloor = 0.001;
+  private lastLevelUpdateMs = 0;
 
   constructor(
     private readonly capture: TabAudioCapture,
@@ -45,16 +48,12 @@ export class VadPipeline {
     this.segmenter = new UtteranceSegmenter(configuration);
   }
 
-  start(): void {
+  async start(): Promise<void> {
     this.stop();
-    const stream = this.capture.activeStream();
-    if (!stream) throw new Error('Start tab capture before voice activity detection.');
+    if (!this.capture.activeStream()) throw new Error('Start tab capture before voice activity detection.');
     this.analyser = this.capture.createAnalyser();
     this.sampleBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
-    this.recorder = new MediaRecorder(stream, this.mediaRecorderOptions());
-    this.recorder.addEventListener('dataavailable', this.handleDataAvailable);
-    this.recorder.addEventListener('error', this.handleRecorderError);
-    this.recorder.start(this.configuration.recorderTimesliceMs);
+    this.pcmTap = await this.capture.createPcmTap(this.handlePcmSamples);
     this.callbacks.onStateChange('listening');
     this.intervalId = window.setInterval(() => this.sample(), this.configuration.analysisIntervalMs);
   }
@@ -62,24 +61,39 @@ export class VadPipeline {
   stop(): void {
     if (this.intervalId !== undefined) window.clearInterval(this.intervalId);
     this.intervalId = undefined;
-    this.recorder?.removeEventListener('dataavailable', this.handleDataAvailable);
-    this.recorder?.removeEventListener('error', this.handleRecorderError);
-    if (this.recorder?.state !== 'inactive') this.recorder?.stop();
-    this.recorder = undefined;
+    this.pcmTap?.stop();
+    this.pcmTap = undefined;
     this.analyser?.disconnect();
     this.analyser = undefined;
     this.sampleBuffer = undefined;
     this.activeSegment = undefined;
     this.preRollChunks = [];
-    this.pendingFinalization = undefined;
+    this.finalizing = false;
+    this.noiseFloor = 0.001;
+    this.lastLevelUpdateMs = 0;
     this.segmenter.reset();
+  }
+
+  /** Finish the active utterance after the interviewer has clearly ended the question. */
+  finishCurrentUtterance(): void {
+    this.handleEvents(this.segmenter.finishCurrentUtterance(performance.now()));
   }
 
   private sample(): void {
     if (!this.analyser || !this.sampleBuffer) return;
     this.analyser.getByteTimeDomainData(this.sampleBuffer);
-    const isSpeech = this.rms(this.sampleBuffer) >= this.configuration.rmsThreshold;
-    this.handleEvents(this.segmenter.observe(isSpeech, performance.now()));
+    const level = this.rms(this.sampleBuffer);
+    if (this.segmenter.currentState() === 'listening') {
+      this.noiseFloor = this.configuration.noiseFloorSmoothing * this.noiseFloor
+        + (1 - this.configuration.noiseFloorSmoothing) * level;
+    }
+    const threshold = adaptiveSpeechThreshold(this.noiseFloor, this.configuration);
+    const nowMs = performance.now();
+    if (nowMs - this.lastLevelUpdateMs >= 100) {
+      this.lastLevelUpdateMs = nowMs;
+      this.callbacks.onAudioLevel(level, threshold);
+    }
+    this.handleEvents(this.segmenter.observe(level >= threshold, nowMs));
   }
 
   private handleEvents(events: SegmenterEvent[]): void {
@@ -88,51 +102,48 @@ export class VadPipeline {
         const startedAtMs = event.startedAtMs - this.configuration.preRollMs;
         this.activeSegment = {
           startedAtMs,
-          chunks: this.preRollChunks.filter((chunk) => chunk.endedAtMs >= startedAtMs).map((chunk) => chunk.data)
+          chunks: this.preRollChunks
+            .filter((chunk) => chunk.endedAtMs >= startedAtMs)
+            .map((chunk) => chunk.samples)
         };
         this.callbacks.onStateChange('speech_detected');
       }
       if (event.type === 'finalizing') this.callbacks.onStateChange('finalizing');
-      if (event.type === 'segment_ready') this.requestFinalization(event.startedAtMs, event.speechEndedAtMs, event.endedAtMs);
+      if (event.type === 'segment_ready') this.finalize(event.startedAtMs, event.speechEndedAtMs, event.endedAtMs);
     }
   }
 
-  private requestFinalization(startedAtMs: number, speechEndedAtMs: number, endedAtMs: number): void {
-    if (!this.activeSegment || this.pendingFinalization || !this.recorder) return;
-    this.pendingFinalization = { startedAtMs, speechEndedAtMs, endedAtMs };
-    this.recorder.requestData();
-  }
-
-  private handleDataAvailable = (event: BlobEvent): void => {
-    if (!event.data.size) return;
+  private handlePcmSamples = (samples: Float32Array): void => {
     const endedAtMs = performance.now();
-    this.preRollChunks.push({ endedAtMs, data: event.data });
-    this.preRollChunks = this.preRollChunks.filter((chunk) => endedAtMs - chunk.endedAtMs <= this.configuration.preRollMs);
-    if (this.activeSegment) this.activeSegment.chunks.push(event.data);
-    if (!this.pendingFinalization || !this.activeSegment) return;
+    this.preRollChunks.push({ endedAtMs, samples });
+    const retainedWindowMs = this.configuration.minimumSpeechMs + this.configuration.preRollMs;
+    this.preRollChunks = this.preRollChunks.filter((chunk) => endedAtMs - chunk.endedAtMs <= retainedWindowMs);
+    if (this.activeSegment) this.activeSegment.chunks.push(samples);
+  };
 
-    const pending = this.pendingFinalization;
+  private finalize(_startedAtMs: number, speechEndedAtMs: number, endedAtMs: number): void {
+    if (!this.activeSegment || !this.pcmTap || this.finalizing) return;
+    this.finalizing = true;
     const active = this.activeSegment;
-    this.pendingFinalization = undefined;
     this.activeSegment = undefined;
-    const segment: FinalizedAudioSegment = {
-      audio: new Blob(active.chunks, {
-        type: normalizeRecordedAudioMimeType(this.recorder?.mimeType || event.data.type)
-      }),
-      startedAtMs: active.startedAtMs,
-      speechEndedAtMs: pending.speechEndedAtMs,
-      endedAtMs: pending.endedAtMs,
-      durationMs: Math.max(0, pending.endedAtMs - active.startedAtMs)
-    };
-    this.segmenter.completeFinalization();
-    this.callbacks.onStateChange('listening');
-    this.callbacks.onSegment(segment);
-  };
-
-  private handleRecorderError = (): void => {
-    this.callbacks.onError(new Error('The browser audio recorder stopped unexpectedly.'));
-    this.stop();
-  };
+    try {
+      const audio = encodeMonoPcm16Wave(active.chunks, this.pcmTap.sampleRate);
+      if (audio.size <= 44) throw new Error('The finalized utterance contains no audio samples.');
+      this.segmenter.completeFinalization();
+      this.callbacks.onStateChange('listening');
+      this.callbacks.onSegment({
+        audio,
+        startedAtMs: active.startedAtMs,
+        speechEndedAtMs,
+        endedAtMs,
+        durationMs: Math.max(0, endedAtMs - active.startedAtMs)
+      });
+    } catch (error) {
+      this.callbacks.onError(error instanceof Error ? error : new Error('Audio finalization failed.'));
+    } finally {
+      this.finalizing = false;
+    }
+  }
 
   private rms(samples: Uint8Array): number {
     let total = 0;
@@ -142,9 +153,11 @@ export class VadPipeline {
     }
     return Math.sqrt(total / samples.length);
   }
+}
 
-  private mediaRecorderOptions(): MediaRecorderOptions {
-    const mimeType = 'audio/webm;codecs=opus';
-    return MediaRecorder.isTypeSupported(mimeType) ? { mimeType } : {};
-  }
+export function adaptiveSpeechThreshold(noiseFloor: number, configuration: VadConfiguration): number {
+  return Math.min(
+    configuration.maximumAdaptiveThreshold,
+    Math.max(configuration.rmsThreshold, noiseFloor * configuration.speechToNoiseRatio)
+  );
 }

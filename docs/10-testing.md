@@ -9,7 +9,7 @@ Backend:
 - prompt builder
 - context builder
 - answer validator
-- mock providers
+- deterministic provider test doubles kept outside production source
 - interview state transitions
 
 Extension:
@@ -23,11 +23,14 @@ Phase 2 covers reducer behavior for separate interviewer/assistant bubbles, toke
 
 Phase 3 capture tests verify that the active tab ID is used to obtain a Chrome media stream ID, diagnostics report the audio track/sample rate, and Stop or a tab-navigation interruption stops tracks and closes the AudioContext.
 
-Phase 4 tests verify VAD state transitions: silence and short noise are ignored, sustained speech enters `speech_detected`, configured silence enters `finalizing`, post-roll produces one ready segment, and finalization does not overlap a new utterance.
+Phase 4 tests verify VAD state transitions: silence and short noise are ignored, sustained speech enters `speech_detected`, configured silence or the explicit Finish action enters `finalizing`, post-roll produces one ready segment, and finalization does not overlap a new utterance.
+The audio-format suite also verifies that each utterance receives a complete
+RIFF/WAVE header and correct PCM payload length, preventing the corrupted WebM
+uploads found during real-provider smoke testing.
 
 Phase 5 tests verify that a finalized segment first creates a transcribing
 interviewer bubble and that a successful transcript replaces it. Backend
-integration tests upload a multipart fixture through the mock STT provider,
+integration tests upload a multipart fixture through a test-only STT double,
 verify the transcript message and `question.transcribed` path, reject a missing
 or invalid upload with the structured error shape.
 
@@ -43,6 +46,24 @@ explicit follow-up answer shape, and an integration path where `Why?` correctly
 uses the completed Kubernetes turn before it. Prompt tests verify that the
 referenced interviewer question is identified separately from the current
 question.
+
+Phase 8 tests use an in-memory repository only as a unit/integration boundary
+for deterministic business-logic tests. A separately enabled PostgreSQL test
+applies the real schema and verifies ordered messages, correlations, transcript
+metadata, latency/context records, and recovery through a new repository
+instance. It is enabled with `RUN_DATABASE_TESTS=true` and a disposable
+`DATABASE_URL`. Readiness tests verify the database check.
+
+Phase 9 HTTP integration tests verify bearer-token enforcement and protected
+metrics. The separately enabled Redis test verifies atomic counters and expiry
+against the real Compose Redis service. Production dependency audit runs with
+`npm audit --omit=dev`; development-only Jest tooling advisories do not ship in
+the multi-stage runtime image.
+
+Phase 10 tests verify heading-aware knowledge chunking, retrieval threshold and
+topic-match fallback, and prompt grounding that never exposes retrieval or
+source names to the candidate. The full knowledge index job is intentionally
+not part of normal tests because it calls the configured embedding provider.
 
 ## Interview-answer quality evaluation
 
@@ -67,25 +88,30 @@ Run deterministic classifier, prompt-builder, formatter, and validator tests on 
 The V1 answer-layer unit tests additionally verify that leading filler and
 whitespace are normalized without changing technical terms, truly incomplete
 questions use `clarification`, and the mode-specific plan is present in the
-typed prompt input. Quality-gate tests cover generic assistant greetings in
-addition to the hard safety and length validator.
+typed prompt input. Quality-gate tests cover generic assistant greetings and
+Markdown list formatting as non-blocking presentation warnings so a usable
+answer is not discarded after streaming, in addition to the hard safety and
+length validator.
 
 The `devops-interview-answer-v2` deterministic evaluation suite covers
 definition, comparison, troubleshooting, scenario, architecture, command, and
 behavioral modes. Every generated prompt must include its theory-to-practice
-delivery flow, and every mock answer must pass the same runtime quality gate.
+delivery flow, and every deterministic fixture answer must pass the same runtime quality gate.
 Technical fixtures fail when they contain only theory and no configuration,
 command/check, log/metric, rollout, trade-off, or verification detail.
 
 ## Integration tests
 
-1. question -> mock LLM -> SSE
-2. audio file -> mock STT -> transcript
-3. final transcript -> classifier/context/prompt -> mock LLM -> SSE
+1. question -> test-only deterministic LLM double -> SSE
+2. audio file -> test-only deterministic STT double -> transcript
+3. final transcript -> classifier/context/prompt -> deterministic LLM double -> SSE
 4. backend error -> extension recovery state
+5. PostgreSQL write -> new repository instance -> restored interview history
+6. Redis rate key -> atomic increments inside one expiring window
 
 Phase 1 backend coverage must also verify:
-- mock LLM streams without `LLM_API_KEY`
+- runtime provider selection contains no fake provider fallback
+- deterministic test doubles stream without external credentials and are excluded from production builds
 - SSE token events are emitted as multiple chunks and an unsubscribed client is released
 - invalid request DTOs return the documented structured error shape
 - `/health/live`, `/health/ready`, and the Swagger JSON document are served over HTTP
@@ -96,6 +122,12 @@ Phase 1 backend coverage must also verify:
 Extension manual dev question
 -> backend
 -> streamed answer
+
+For a real-provider smoke test, select `LLM_PROVIDER=openai`, configure a valid
+backend-only `LLM_API_KEY` and `LLM_MODEL`, create a session, and use the
+development-only manual question form. This consumes provider quota and may
+incur cost, so keep the smoke test intentional and bounded. Do not use a live,
+nondeterministic provider for automated quality assertions.
 
 ### Audio path
 Open a browser tab containing a test interview recording.

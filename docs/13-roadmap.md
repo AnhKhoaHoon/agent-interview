@@ -9,7 +9,7 @@ Do not mark a roadmap phase complete until its code and affected documentation h
 ## Phase 1 - Core backend
 - NestJS
 - Swagger
-- mock LLM
+- deterministic LLM test double outside production source
 - real LLM provider abstraction
 - text question
 - SSE
@@ -42,8 +42,9 @@ Phase 4 adds configured RMS voice activity detection, pre-roll/post-roll utteran
 - real provider
 - transcript chat bubble
 
-Phase 5 implements a NestJS `TranscriptionModule` with a mock provider and an
-OpenAI-backed STT provider selected only by backend configuration. Finalized
+Phase 5 implements a NestJS `TranscriptionModule` with an OpenAI-backed STT
+provider selected only by backend configuration. Provider doubles are confined
+to the test suite and are not selectable at runtime. Finalized
 extension segments are uploaded as bounded multipart requests, displayed as a
 temporary `Transcribing…` interviewer bubble, and replaced by the final
 transcript. Raw audio is not persisted. Successful transcription publishes
@@ -88,6 +89,16 @@ candidate profile, or job-description context is introduced in this phase.
 - history
 - latency records
 
+Phase 8 is implemented with versioned SQL migrations and a PostgreSQL-backed
+repository. Interviews, ordered correlated messages, transcription metadata,
+answer context snapshots, and STT/LLM latency records survive backend restarts.
+Segment idempotency is checked against PostgreSQL in addition to the in-flight
+request guard. Raw audio remains ephemeral and is never written to the
+database. The readiness endpoint now verifies PostgreSQL connectivity.
+
+This phase does not add authentication, rate limiting, public-network CORS
+hardening, backups, or multi-instance SSE coordination; those remain Phase 9.
+
 ## Phase 9 - Production hardening
 - auth
 - rate limit
@@ -96,15 +107,32 @@ candidate profile, or job-description context is introduced in this phase.
 - logs/metrics
 - backups
 
+Phase 9 is implemented for the self-hosted V1 boundary. Creating a session
+returns a 256-bit per-interview bearer token; only its SHA-256 hash is stored,
+and every interview REST/SSE operation requires it. The extension keeps the
+token in memory and uses authenticated fetch-based SSE so it never appears in a
+URL. Redis provides fail-closed distributed rate limiting when enabled.
+
+Production mode refuses to start without an exact CORS allowlist, enabled Redis
+rate limiting, and protected Prometheus metrics. The backend adds security
+headers, structured HTTP logs, explicit provider timeouts/retries, graceful
+shutdown, PostgreSQL-aware readiness, a non-root multi-stage image, and guarded
+backup/restore scripts. Phase 9 does not replace platform TLS, a private
+database network, secret management, scheduled backups/restore drills, or an
+identity-aware edge for a public multi-user service.
+
 ## Phase 10 - DevOps knowledge RAG
 - curated docs
 - pgvector
 - retrieval
 - source/version metadata
 
-Curated DevOps source cards may be maintained under `knowledge/devops/` before
-this phase. Adding or editing those cards does not enable RAG, indexing, or
-automatic prompt injection; those runtime capabilities remain Phase 10 work.
+Phase 10 is implemented with backend-only OpenAI embeddings behind an
+`EmbeddingProvider` interface, pgvector, source-hashed Markdown ingestion, and
+bounded similarity retrieval. Indexing is explicit (`npm run knowledge:index`)
+so backend startup does not unexpectedly incur embedding cost. Only relevant
+topic-matched chunks are injected into a prompt; missing or low-confidence
+knowledge falls back to the LLM without claiming a source.
 
 ## Phase 11 - Candidate Profile + JD
 - profile parser

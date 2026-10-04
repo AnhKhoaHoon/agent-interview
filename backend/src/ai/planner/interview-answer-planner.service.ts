@@ -6,11 +6,12 @@ type PlanTemplate = Omit<InterviewAnswerPlan, 'promptVersion' | 'responseMode'>;
 const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
   technical_definition: {
     opening: 'State the definition directly in the first sentence.',
-    deliverySteps: ['explain the core principle or mechanism', 'show where it is used in a real system', 'give one configuration, check, metric, or operational caveat'],
-    requiredPoints: ['why it matters operationally', 'one practical implementation or check'],
-    qualityChecks: ['direct answer', 'practical detail'],
+    deliverySteps: ['explain the core principle or key distinction', 'state why it is used', 'give exactly one relevant practical example or caveat'],
+    requiredPoints: ['definition in scope', 'why it matters', 'one practical detail only'],
+    qualityChecks: ['direct answer', 'scope matched', 'no unrelated troubleshooting checklist'],
     requiresOperationalDetail: true,
-    maxWords: 120
+    minWords: 40,
+    maxWords: 85
   },
   technical_comparison: {
     opening: 'State the key distinction before comparing options.',
@@ -18,6 +19,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['material trade-off', 'when to choose each option'],
     qualityChecks: ['clear distinction', 'decision guidance'],
     requiresOperationalDetail: true,
+    minWords: 60,
     maxWords: 120
   },
   technical_troubleshooting: {
@@ -26,6 +28,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['likely causes', 'ordered checks', 'remediation', 'verification'],
     qualityChecks: ['safe sequence', 'explicit verification'],
     requiresOperationalDetail: true,
+    minWords: 60,
     maxWords: 120
   },
   technical_scenario: {
@@ -34,6 +37,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['practical steps', 'trade-off or risk', 'validation'],
     qualityChecks: ['actionable recommendation', 'validation'],
     requiresOperationalDetail: true,
+    minWords: 60,
     maxWords: 120
   },
   technical_architecture: {
@@ -42,6 +46,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['key components', 'reliability, security, or cost trade-off', 'validation or rollout'],
     qualityChecks: ['clear recommendation', 'trade-off', 'validation'],
     requiresOperationalDetail: true,
+    minWords: 60,
     maxWords: 120
   },
   technical_command: {
@@ -50,6 +55,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['what to inspect', 'what the result establishes', 'safe next action'],
     qualityChecks: ['no claim that a command was run', 'safe next step'],
     requiresOperationalDetail: true,
+    minWords: 50,
     maxWords: 120
   },
   behavioral_experience: {
@@ -58,6 +64,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['situation', 'task', 'action', 'result or verified lesson'],
     qualityChecks: ['no unsupported first-person claim'],
     requiresOperationalDetail: false,
+    minWords: 60,
     maxWords: 120
   },
   clarification: {
@@ -66,6 +73,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['the missing technical context'],
     qualityChecks: ['one concise question only'],
     requiresOperationalDetail: false,
+    minWords: 1,
     maxWords: 30
   }
 };

@@ -7,15 +7,16 @@ export class InterviewAnswerQualityService {
   constructor(private readonly validator: AnswerValidatorService) {}
 
   evaluate(answer: string, classification: Classification, plan: InterviewAnswerPlan): ValidationResult {
-    const result = this.validator.validate(answer, classification, plan.maxWords);
+    const result = this.validator.validate(answer, classification, plan.minWords, plan.maxWords);
     const normalized = answer.trim();
     const reasons = [...result.reasons];
+    const warnings: string[] = [];
 
     if (/^(?:certainly|sure|of course|great question)[,!\s]/i.test(normalized)) {
-      reasons.push('answer starts with a generic assistant greeting');
+      warnings.push('answer starts with a generic assistant greeting');
     }
     if (/^#{1,6}\s|^[-*]\s/m.test(normalized)) {
-      reasons.push('answer uses formatting that is unsuitable for a spoken answer');
+      warnings.push('answer uses formatting that is unsuitable for a spoken answer');
     }
     if (plan.responseMode === 'clarification' && (!normalized.endsWith('?') || /[?].+[?]/.test(normalized))) {
       reasons.push('clarification must be one targeted question');
@@ -24,6 +25,10 @@ export class InterviewAnswerQualityService {
       reasons.push('answer lacks a concrete operational detail');
     }
 
-    return { valid: reasons.length === 0, reasons };
+    return {
+      valid: reasons.length === 0,
+      reasons,
+      ...(warnings.length ? { warnings } : {})
+    };
   }
 }

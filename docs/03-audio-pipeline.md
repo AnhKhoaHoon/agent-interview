@@ -26,14 +26,22 @@ VAD and segment timing lives in one configuration module in the extension (`audi
 Initial configuration:
 
 - minimum speech duration: 300 ms
-- silence timeout: 900 ms
+- silence timeout: 2,000 ms
 - max utterance: 30 s
 - pre-roll buffer: 250 ms
 - post-roll buffer: 300 ms
 
 All values should be configurable.
 
-Phase 4 detects voice from RMS samples of the captured tab audio. It begins an utterance only after minimum speech, retains pre-roll to avoid cutting its beginning, finalizes after the silence timeout plus post-roll, and prevents another segment from starting until the finalization flush completes.
+Phase 4 detects voice from RMS samples of the captured tab audio. It begins an utterance only after minimum speech, retains pre-roll to avoid cutting its beginning, finalizes after the silence timeout plus post-roll, and prevents another segment from starting until the finalization flush completes. The two-second timeout deliberately favors a complete interview question when the interviewer pauses naturally.
+
+When **Speech detected** is visible, the Side Panel also exposes **Finish**. Use it only after the interviewer has completed the question: it finalizes the current utterance (including post-roll) immediately, sends it through STT, and keeps tab capture running for the next question. This gives the user an explicit end-of-question signal when a faster response is wanted. VAD still provides the automatic fallback, because no detector can reliably distinguish a long thinking pause from the true end of speech without a user signal.
+
+The Side Panel shows a compact live **Sound** meter from the selected tab. An
+empty meter means Chrome is delivering no tab audio; re-open the picker, select
+the interview tab, and enable **Share tab audio** before diagnosing STT. The
+speech threshold adapts to the tab's observed noise floor while retaining a
+small minimum threshold so quiet remote speech can still start an utterance.
 
 ## Segment rules
 
@@ -66,17 +74,29 @@ Do not store interview audio unless explicitly enabled.
 
 ## Phase 5 upload boundary
 
-Phase 5 uploads each finalized in-memory `audio/webm` Blob with `durationMs`
-to the backend. The backend validates MIME type, non-empty content, a 10 MiB
+Phase 5 uploads each finalized in-memory mono PCM `audio/wav` Blob with
+`durationMs` and the selected `vi` or `en` language hint to the backend. A
+packaged, local `AudioWorklet` supplies mono PCM
+frames; they are retained only for the configured
+VAD window and encoded as a self-contained WAV file per utterance. This avoids
+uploading dependent `MediaRecorder` WebM chunks that lack container headers and
+are rejected by real STT providers as corrupted audio. The backend validates
+MIME type, non-empty content, a 10 MiB
 maximum upload, and a 31-second maximum duration before it calls STT. It keeps
 the raw bytes only for the request/provider call and never persists them. A
 successful result becomes an interviewer transcript and publishes
 `question.transcribed`.
 
-Chrome may report the recorder format as `audio/webm;codecs=opus`. The extension
-normalizes this to the container MIME type `audio/webm` before upload, and the
-backend independently strips MIME parameters before applying its allowlist.
-Unsupported base types remain rejected.
+Before the provider call, backend orchestration attaches a V1 DevOps STT
+vocabulary prompt in the selected language. This improves transcription of
+English technical terms embedded in Vietnamese questions, such as `Docker`,
+`Kubernetes`, `Terraform`, and `Argo CD`. It is backend-owned context only;
+the extension cannot set it and no raw audio is retained after the request.
+
+The backend independently strips MIME parameters before applying its allowlist.
+Unsupported base types remain rejected. Captured tab audio is also routed back
+to the local AudioContext destination so selecting tab capture does not silence
+the interview for the user.
 
 ## Phase 6 answer handoff
 

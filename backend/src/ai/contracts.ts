@@ -18,6 +18,8 @@ export type ResponseMode =
   | 'behavioral_experience'
   | 'clarification';
 
+export type InterviewLanguage = 'vi' | 'en';
+
 export interface Classification {
   role: 'devops';
   category: string;
@@ -30,6 +32,13 @@ export interface Classification {
 export interface ConversationMessage {
   role: 'interviewer' | 'assistant';
   content: string;
+}
+
+export interface RetrievedKnowledge {
+  sourcePath: string;
+  category: string;
+  text: string;
+  score: number;
 }
 
 export interface InterviewQuestionAssessment {
@@ -49,6 +58,7 @@ export interface InterviewAnswerPlan {
   requiredPoints: string[];
   qualityChecks: string[];
   requiresOperationalDetail: boolean;
+  minWords: number;
   maxWords: number;
 }
 
@@ -57,6 +67,8 @@ export interface PromptInput {
   classification: Classification;
   history: ConversationMessage[];
   plan: InterviewAnswerPlan;
+  answerLanguage?: InterviewLanguage;
+  knowledge?: RetrievedKnowledge[];
   followUp?: {
     referenceQuestion: string;
   };

@@ -1,15 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { LlmGenerationInput, LlmProvider } from '../contracts';
+import { LlmGenerationInput, LlmProvider } from '../../src/ai/contracts';
 
-@Injectable()
-export class MockLlmProvider implements LlmProvider {
-  readonly name = 'mock';
+export class DeterministicTestLlmProvider implements LlmProvider {
+  readonly name = 'deterministic-test-double';
 
   async *stream(input: LlmGenerationInput): AsyncIterable<string> {
-    const answer = this.answerFor(input.input);
-    for (const token of answer.split(/(\s+)/).filter(Boolean)) {
-      yield token;
-    }
+    for (const token of this.answerFor(input.input).split(/(\s+)/).filter(Boolean)) yield token;
   }
 
   private answerFor(input: string): string {

@@ -4,6 +4,7 @@ import { configureApp } from './app.config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { cors: false });
+  app.enableShutdownHooks();
   configureApp(app);
 
   await app.listen(Number(process.env.PORT ?? 3000));

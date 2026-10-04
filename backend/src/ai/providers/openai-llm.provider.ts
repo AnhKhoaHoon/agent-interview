@@ -13,7 +13,11 @@ export class OpenAiLlmProvider implements LlmProvider {
       throw new ServiceUnavailableException('OpenAI requires LLM_API_KEY and LLM_MODEL');
     }
 
-    const client = new OpenAI({ apiKey, timeout: Number(process.env.LLM_TIMEOUT_MS ?? 15_000) });
+    const client = new OpenAI({
+      apiKey,
+      timeout: Number(process.env.LLM_TIMEOUT_MS ?? 15_000),
+      maxRetries: Number(process.env.LLM_MAX_RETRIES ?? 2)
+    });
     const stream = await client.responses.create({
       model,
       instructions: input.instructions,

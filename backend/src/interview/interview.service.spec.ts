@@ -1,21 +1,49 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../app.module';
+import { LlmGenerationInput, LlmProvider } from '../ai/contracts';
+import { LlmProviderFactory } from '../ai/providers/llm-provider.factory';
 import { InterviewStreamEvent, InterviewStreamService } from '../stream/interview-stream.service';
+import { DeterministicTestLlmProvider } from '../../test/support/deterministic-test-llm.provider';
+import { InMemoryInterviewRepository } from '../../test/support/in-memory-interview.repository';
+import { DatabaseService } from '../persistence/database.service';
+import { InterviewRepository } from '../persistence/interview.repository';
 import { InterviewService } from './interview.service';
+
+class FailingTestLlmProvider implements LlmProvider {
+  readonly name = 'failing-test-double';
+
+  stream(_input: LlmGenerationInput): AsyncIterable<string> {
+    return {
+      [Symbol.asyncIterator](): AsyncIterator<string> {
+        return { next: async () => Promise.reject(new Error('Injected test provider failure')) };
+      }
+    };
+  }
+}
 
 describe('InterviewService integration', () => {
   let service: InterviewService;
   let streams: InterviewStreamService;
+  let providerShouldFail: boolean;
 
   beforeEach(async () => {
-    process.env.LLM_PROVIDER = 'mock';
-    const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    providerShouldFail = false;
+    const successfulProvider = new DeterministicTestLlmProvider();
+    const failingProvider = new FailingTestLlmProvider();
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(LlmProviderFactory)
+      .useValue({ getConfiguredProvider: () => providerShouldFail ? failingProvider : successfulProvider })
+      .overrideProvider(InterviewRepository)
+      .useValue(new InMemoryInterviewRepository())
+      .overrideProvider(DatabaseService)
+      .useValue({})
+      .compile();
     service = module.get(InterviewService);
     streams = module.get(InterviewStreamService);
   });
 
   it('accepts a text question and emits a completed SSE answer', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const events: InterviewStreamEvent[] = [];
     const completion = new Promise<void>((resolve, reject) => {
       streams.open(interview.id).subscribe({
@@ -27,26 +55,26 @@ describe('InterviewService integration', () => {
       });
     });
 
-    const result = service.submitQuestion(interview.id, 'What is Kubernetes HPA?');
+    const result = await service.submitQuestion(interview.id, 'What is Kubernetes HPA?');
     await completion;
 
     expect(result.accepted).toBe(true);
     expect(events.map((event) => event.type)).toEqual(expect.arrayContaining(['question.transcribed', 'answer.started', 'answer.token', 'answer.keywords', 'answer.completed']));
     expect(events.filter((event) => event.type === 'answer.token').length).toBeGreaterThan(1);
-    expect(service.listMessages(interview.id)).toHaveLength(2);
+    expect(await service.listMessages(interview.id)).toHaveLength(2);
   });
 
-  it('releases a disconnected SSE subscription while retaining the active interview session', () => {
-    const interview = service.create();
+  it('releases a disconnected SSE subscription while retaining the active interview session', async () => {
+    const interview = await service.create();
     const subscription = streams.open(interview.id).subscribe();
     expect(streams.activeSubscriberCount(interview.id)).toBe(1);
     subscription.unsubscribe();
     expect(streams.activeSubscriberCount(interview.id)).toBe(0);
-    expect(service.get(interview.id).status).toBe('active');
+    expect((await service.get(interview.id)).status).toBe('active');
   });
 
   it('automatically streams one correlated answer after a final transcript', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const events: InterviewStreamEvent[] = [];
     const completion = new Promise<void>((resolve, reject) => {
       streams.open(interview.id).subscribe({
@@ -58,8 +86,8 @@ describe('InterviewService integration', () => {
       });
     });
 
-    service.transcriptionStarted(interview.id, 1_550);
-    const question = service.recordTranscript(interview.id, 'What is Kubernetes HPA?', { segmentId: 'segment-1', speechEndedAtMs: Date.now() - 40 });
+    await service.transcriptionStarted(interview.id, 1_550);
+    const question = await service.recordTranscript(interview.id, 'What is Kubernetes HPA?', { segmentId: 'segment-1', speechEndedAtMs: Date.now() - 40 });
     await completion;
 
     expect(events).toEqual(expect.arrayContaining([
@@ -69,14 +97,14 @@ describe('InterviewService integration', () => {
       expect.objectContaining({ type: 'answer.token', data: expect.objectContaining({ questionId: question.id }) }),
       expect.objectContaining({ type: 'answer.completed', data: expect.objectContaining({ questionId: question.id, speechEndToFirstAnswerMs: expect.any(Number) }) })
     ]));
-    expect(service.listMessages(interview.id)).toEqual([
+    expect(await service.listMessages(interview.id)).toEqual([
       expect.objectContaining({ id: question.id, role: 'interviewer', content: 'What is Kubernetes HPA?' }),
       expect.objectContaining({ role: 'assistant', questionId: question.id, status: 'completed' })
     ]);
   });
 
   it('completes a concise clarification answer for an incomplete transcript', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const completion = new Promise<void>((resolve, reject) => {
       streams.open(interview.id).subscribe((event) => {
         if (event.type === 'answer.completed') resolve();
@@ -84,17 +112,17 @@ describe('InterviewService integration', () => {
       });
     });
 
-    const question = service.recordTranscript(interview.id, 'What about?');
+    const question = await service.recordTranscript(interview.id, 'What about?');
     await completion;
 
-    expect(service.listMessages(interview.id)).toEqual([
+    expect(await service.listMessages(interview.id)).toEqual([
       expect.objectContaining({ id: question.id, role: 'interviewer', content: 'What about?' }),
       expect.objectContaining({ role: 'assistant', questionId: question.id, status: 'completed', content: expect.stringMatching(/\?$/) })
     ]);
   });
 
   it('uses completed conversation context to answer a short follow-up', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const waitForCompletion = (questionId: string) => new Promise<void>((resolve, reject) => {
       const subscription = streams.open(interview.id).subscribe((event) => {
         if (event.type === 'answer.completed' && event.data.questionId === questionId) {
@@ -108,12 +136,12 @@ describe('InterviewService integration', () => {
       });
     });
 
-    const first = service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
+    const first = await service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
     await waitForCompletion(first.id);
-    const followUp = service.recordTranscript(interview.id, 'Why?');
+    const followUp = await service.recordTranscript(interview.id, 'Why?');
     await waitForCompletion(followUp.id);
 
-    expect(service.listMessages(interview.id)).toEqual([
+    expect(await service.listMessages(interview.id)).toEqual([
       expect.objectContaining({ id: first.id, role: 'interviewer' }),
       expect.objectContaining({ role: 'assistant', questionId: first.id, status: 'completed' }),
       expect.objectContaining({ id: followUp.id, role: 'interviewer', content: 'Why?' }),
@@ -122,7 +150,7 @@ describe('InterviewService integration', () => {
   });
 
   it('keeps two overlapping transcript-answer pairs in stable order', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const completedAnswers = new Set<string>();
     const questionByAnswerId = new Map<string, string>();
     let mismatchedToken = false;
@@ -140,14 +168,14 @@ describe('InterviewService integration', () => {
       });
     });
 
-    const first = service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
-    const second = service.recordTranscript(interview.id, 'What is Terraform state?');
+    const first = await service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
+    const second = await service.recordTranscript(interview.id, 'What is Terraform state?');
     await completion;
 
     expect(mismatchedToken).toBe(false);
     expect(questionByAnswerId.size).toBe(2);
 
-    expect(service.listMessages(interview.id).map((message) => ({ role: message.role, questionId: message.questionId, id: message.id }))).toEqual([
+    expect((await service.listMessages(interview.id)).map((message) => ({ role: message.role, questionId: message.questionId, id: message.id }))).toEqual([
       { role: 'interviewer', questionId: undefined, id: first.id },
       { role: 'assistant', questionId: first.id, id: expect.any(String) },
       { role: 'interviewer', questionId: undefined, id: second.id },
@@ -156,7 +184,7 @@ describe('InterviewService integration', () => {
   });
 
   it('preserves the transcript and retries only a failed correlated answer', async () => {
-    const interview = service.create();
+    const interview = await service.create();
     const events: InterviewStreamEvent[] = [];
     const failure = new Promise<void>((resolve) => {
       streams.open(interview.id).subscribe((event) => {
@@ -165,15 +193,15 @@ describe('InterviewService integration', () => {
       });
     });
 
-    process.env.LLM_PROVIDER = 'unsupported';
-    const question = service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
+    providerShouldFail = true;
+    const question = await service.recordTranscript(interview.id, 'What is Kubernetes HPA?');
     await failure;
-    expect(service.listMessages(interview.id)).toEqual(expect.arrayContaining([
+    expect(await service.listMessages(interview.id)).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: question.id, role: 'interviewer', content: 'What is Kubernetes HPA?' }),
       expect.objectContaining({ role: 'assistant', questionId: question.id, status: 'failed' })
     ]));
 
-    process.env.LLM_PROVIDER = 'mock';
+    providerShouldFail = false;
     let retryStarted = false;
     const completion = new Promise<void>((resolve, reject) => {
       streams.open(interview.id).subscribe({
@@ -185,11 +213,11 @@ describe('InterviewService integration', () => {
       });
     });
     retryStarted = true;
-    const retry = service.retryAnswer(interview.id, question.id);
+    const retry = await service.retryAnswer(interview.id, question.id);
     await completion;
 
     expect(retry).toEqual(expect.objectContaining({ questionId: question.id, accepted: true }));
-    expect(service.listMessages(interview.id)).toEqual([
+    expect(await service.listMessages(interview.id)).toEqual([
       expect.objectContaining({ id: question.id, role: 'interviewer' }),
       expect.objectContaining({ id: retry.answerMessageId, role: 'assistant', questionId: question.id, status: 'completed' })
     ]);

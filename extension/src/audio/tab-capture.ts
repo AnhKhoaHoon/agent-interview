@@ -24,6 +24,11 @@ export interface ActiveCapture {
   diagnostics: CaptureDiagnostics;
 }
 
+export interface PcmTap {
+  sampleRate: number;
+  stop: () => void;
+}
+
 export type CaptureStatusListener = (status: Exclude<CaptureStatus, 'listening' | 'stopped' | 'error'>) => void;
 
 function browserDependencies(): CaptureDependencies {
@@ -59,6 +64,8 @@ export class TabAudioCapture {
   private audioContext?: AudioContext;
   private sourceNode?: MediaStreamAudioSourceNode;
   private analyserNode?: AnalyserNode;
+  private pcmProcessor?: AudioWorkletNode;
+  private pcmSilenceGain?: GainNode;
   private tabId?: number;
   private track?: MediaStreamTrack;
   private onTrackEnded?: () => void;
@@ -113,6 +120,7 @@ export class TabAudioCapture {
     this.track = track;
     this.audioContext = this.dependencies.createAudioContext();
     this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+    this.sourceNode.connect(this.audioContext.destination);
     this.onTrackEnded = () => {
       const interruptedTabId = this.tabId;
       void this.stop().finally(() => {
@@ -134,16 +142,23 @@ export class TabAudioCapture {
 
     const sourceNode = this.sourceNode;
     const analyserNode = this.analyserNode;
+    const pcmProcessor = this.pcmProcessor;
+    const pcmSilenceGain = this.pcmSilenceGain;
     const stream = this.stream;
     const audioContext = this.audioContext;
     this.sourceNode = undefined;
     this.analyserNode = undefined;
+    this.pcmProcessor = undefined;
+    this.pcmSilenceGain = undefined;
     this.stream = undefined;
     this.audioContext = undefined;
     this.tabId = undefined;
 
     sourceNode?.disconnect();
     analyserNode?.disconnect();
+    if (pcmProcessor) pcmProcessor.port.onmessage = null;
+    pcmProcessor?.disconnect();
+    pcmSilenceGain?.disconnect();
     stream?.getTracks().forEach((mediaTrack) => mediaTrack.stop());
     if (audioContext && audioContext.state !== 'closed') await audioContext.close();
   }
@@ -161,6 +176,46 @@ export class TabAudioCapture {
     this.analyserNode.fftSize = 2048;
     this.sourceNode.connect(this.analyserNode);
     return this.analyserNode;
+  }
+
+  async createPcmTap(onSamples: (samples: Float32Array) => void): Promise<PcmTap> {
+    if (!this.audioContext || !this.sourceNode) throw new Error('Start tab capture before recording audio.');
+    const audioContext = this.audioContext;
+    const sourceNode = this.sourceNode;
+    this.pcmProcessor?.disconnect();
+    this.pcmSilenceGain?.disconnect();
+    await audioContext.audioWorklet.addModule(chrome.runtime.getURL('pcm-capture-worklet.js'));
+    if (this.audioContext !== audioContext || this.sourceNode !== sourceNode) {
+      throw new Error('Tab capture stopped while the audio processor was loading.');
+    }
+    const processor = new AudioWorkletNode(audioContext, 'pcm-capture-processor', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+      channelCount: 1,
+      channelCountMode: 'explicit'
+    });
+    const silenceGain = audioContext.createGain();
+    silenceGain.gain.value = 0;
+    processor.port.onmessage = (event: MessageEvent<unknown>) => {
+      if (event.data instanceof Float32Array) onSamples(event.data);
+    };
+    sourceNode.connect(processor);
+    processor.connect(silenceGain);
+    silenceGain.connect(audioContext.destination);
+    this.pcmProcessor = processor;
+    this.pcmSilenceGain = silenceGain;
+    return {
+      sampleRate: audioContext.sampleRate,
+      stop: () => {
+        if (this.pcmProcessor !== processor) return;
+        processor.port.onmessage = null;
+        processor.disconnect();
+        silenceGain.disconnect();
+        this.pcmProcessor = undefined;
+        this.pcmSilenceGain = undefined;
+      }
+    };
   }
 
   activeStream(): MediaStream | undefined {

@@ -1,5 +1,13 @@
 # Release Checklist
 
+Phase 9 supplies automated evidence for request validation, health/readiness,
+database migrations and restart persistence, interview bearer enforcement,
+protected metrics, Redis rate counters, provider timeout/retry configuration,
+structured logs, non-retention of raw audio, lint, tests, builds, and production
+dependency audit. Keep the boxes below environment-specific: code existing does
+not prove TLS, secret injection, backup scheduling/restore, Chrome Web Store
+review, real-provider quality, or live SLOs for a deployment.
+
 ## Extension
 
 - [ ] Manifest V3 valid
@@ -37,7 +45,7 @@
 - [ ] no invented candidate experience
 - [ ] answer length bounded
 - [ ] fallback for empty/bad output
-- [ ] mock and real provider tests pass
+- [ ] test-double and real-provider tests pass
 
 ## Performance
 

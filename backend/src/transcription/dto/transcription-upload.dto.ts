@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { transcriptionConfiguration } from '../transcription.config';
 
 export class TranscriptionUploadDto {
@@ -22,4 +22,10 @@ export class TranscriptionUploadDto {
   @IsInt()
   @Min(1)
   speechEndedAtMs?: number;
+
+  @ApiProperty({ required: false, enum: ['vi', 'en'], default: 'vi', description: 'Language hint for this audio segment.' })
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
+  @IsIn(['vi', 'en'])
+  language?: 'vi' | 'en';
 }

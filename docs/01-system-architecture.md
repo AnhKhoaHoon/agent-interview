@@ -40,8 +40,8 @@
        v
 +----------------------------+
 | PostgreSQL                 |
-| Redis optional             |
-| pgvector later             |
+| Redis rate limit           |
+| pgvector knowledge index   |
 +----------------------------+
 ```
 
@@ -55,6 +55,7 @@ Audio
 -> Transcript
 -> Question Classifier
 -> Context Builder
+-> Knowledge Retrieval (when relevant)
 -> DevOps Prompt Builder
 -> LLM Stream
 -> Answer Validator
@@ -72,6 +73,13 @@ messages that occurred before that question. It excludes the current question,
 keeps at most ten recent messages, and never starts the bounded window with an
 assistant answer whose interviewer turn has already been trimmed. This also
 prevents a retried older answer from seeing later interview turns.
+
+Phase 8 makes PostgreSQL the runtime source of truth. A repository boundary
+keeps persistence out of classification and prompt logic. Interview creation,
+message sequencing, transcript idempotency, answer context snapshots, and
+latency completion are persisted before their corresponding completed state is
+reported. Database row locking assigns stable message sequence numbers when
+overlapping questions arrive. SSE subscriptions remain process-local.
 
 ## Overlapping interview events
 

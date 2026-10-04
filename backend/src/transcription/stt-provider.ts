@@ -2,6 +2,10 @@ export interface TranscriptionOptions {
   durationMs: number;
   mimeType: string;
   filename: string;
+  /** Optional per-segment V1 hint: vi for Vietnamese or en for English. */
+  language?: string;
+  /** Optional domain context supplied by backend orchestration only. */
+  prompt?: string;
 }
 
 export interface TranscriptionResult {

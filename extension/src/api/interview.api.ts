@@ -1,5 +1,5 @@
 import { API_BASE_URL, ApiClientError, requestJson } from './client';
-import type { ApiError, InterviewSession } from '../types/interview';
+import type { ApiError, InterviewSession, InterviewSessionSummary, TranscriptionLanguage } from '../types/interview';
 
 export interface QuestionAccepted {
   questionId: string;
@@ -21,15 +21,20 @@ export function createInterview(): Promise<InterviewSession> {
   });
 }
 
-export function endInterview(interviewId: string): Promise<InterviewSession> {
-  return requestJson<InterviewSession>(`/interviews/${encodeURIComponent(interviewId)}/end`, { method: 'POST' });
+export function endInterview(interviewId: string, accessToken: string): Promise<InterviewSessionSummary> {
+  return requestJson<InterviewSessionSummary>(`/interviews/${encodeURIComponent(interviewId)}/end`, { method: 'POST' }, accessToken);
 }
 
-export function askQuestion(interviewId: string, question: string): Promise<QuestionAccepted> {
+export function askQuestion(
+  interviewId: string,
+  accessToken: string,
+  question: string,
+  language: TranscriptionLanguage
+): Promise<QuestionAccepted> {
   return requestJson<QuestionAccepted>(`/interviews/${encodeURIComponent(interviewId)}/questions`, {
     method: 'POST',
-    body: JSON.stringify({ question })
-  });
+    body: JSON.stringify({ question, language })
+  }, accessToken);
 }
 
 export function eventStreamUrl(interviewId: string): string {
@@ -41,15 +46,19 @@ export async function uploadTranscription(
   audio: Blob,
   durationMs: number,
   segmentId: string,
-  speechEndedAtMs: number
+  speechEndedAtMs: number,
+  language: TranscriptionLanguage,
+  accessToken: string
 ): Promise<TranscriptionAccepted> {
   const body = new FormData();
-  body.append('audio', audio, 'utterance.webm');
+  body.append('audio', audio, audio.type === 'audio/wav' ? 'utterance.wav' : 'utterance.webm');
   body.append('durationMs', String(Math.round(durationMs)));
   body.append('segmentId', segmentId);
   body.append('speechEndedAtMs', String(Math.round(speechEndedAtMs)));
+  body.append('language', language);
   const response = await fetch(`${API_BASE_URL}/interviews/${encodeURIComponent(interviewId)}/transcriptions`, {
     method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
     body
   });
   if (!response.ok) {
@@ -70,9 +79,10 @@ export interface AnswerRetryAccepted {
   accepted: true;
 }
 
-export function retryAnswer(interviewId: string, questionId: string): Promise<AnswerRetryAccepted> {
+export function retryAnswer(interviewId: string, accessToken: string, questionId: string): Promise<AnswerRetryAccepted> {
   return requestJson<AnswerRetryAccepted>(
     `/interviews/${encodeURIComponent(interviewId)}/questions/${encodeURIComponent(questionId)}/answer/retry`,
-    { method: 'POST' }
+    { method: 'POST' },
+    accessToken
   );
 }

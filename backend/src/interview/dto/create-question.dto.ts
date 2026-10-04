@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateQuestionDto {
   @ApiProperty({ example: 'What is Kubernetes HPA?' })
@@ -7,4 +7,9 @@ export class CreateQuestionDto {
   @IsNotEmpty()
   @MaxLength(4_000)
   question!: string;
+
+  @ApiPropertyOptional({ enum: ['vi', 'en'], default: 'vi', description: 'Required answer language for this question.' })
+  @IsOptional()
+  @IsIn(['vi', 'en'])
+  language?: 'vi' | 'en';
 }

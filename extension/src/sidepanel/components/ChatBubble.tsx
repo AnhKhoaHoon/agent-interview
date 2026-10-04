@@ -25,7 +25,6 @@ export function ChatBubble({ message, onRetryTranscription, onRetryAnswer }: Cha
       <p>{message.content || '…'}</p>
       {message.status === 'failed' && message.retryable && message.role === 'interviewer' && onRetryTranscription && <button className="retry-button" type="button" onClick={() => onRetryTranscription(message.id)}>Retry transcription</button>}
       {message.status === 'failed' && message.retryable && message.role === 'assistant' && message.questionId && onRetryAnswer && <button className="retry-button" type="button" onClick={() => onRetryAnswer(message.questionId!)}>Retry answer</button>}
-      {message.keywords && <div className="keywords">{message.keywords.join(' • ')}</div>}
     </article>
   );
 }

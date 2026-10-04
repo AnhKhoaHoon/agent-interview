@@ -26,7 +26,6 @@ Use minimum permissions.
 Expected:
 - sidePanel
 - activeTab
-- storage
 - tabCapture
 
 Do not request broad host access without a concrete requirement.
@@ -39,12 +38,22 @@ Production must use strict allowlist.
 
 ## API protection
 
-For personal use:
-- static bearer token or authenticated session may be enough
+Implemented V1 controls:
+
+- a new session receives a random 256-bit bearer token;
+- PostgreSQL stores only its SHA-256 hash;
+- all interview-specific REST and SSE requests require that token;
+- the extension keeps it in memory only and never puts it in an SSE URL;
+- Redis rate limits session creation, transcription, and general API calls when
+  production hardening is enabled;
+- rate limiting fails closed if its required Redis dependency is unavailable.
+
+This is interview-resource authorization, not human identity. For an internet-
+facing multi-user product, place the private backend behind an identity-aware
+edge or add proper OIDC/OAuth user authentication and per-user quota/accounting.
 
 For broader use:
-- proper user auth
-- rate limit
+- proper user identity
 - per-user quotas
 - request validation
 - audit logs
@@ -69,3 +78,7 @@ Prefer structured event logs with request/session IDs.
 ## TLS
 
 Production backend must use HTTPS/WSS only.
+
+Production startup rejects a wildcard/empty CORS allowlist, disabled rate
+limiting, and an unprotected metrics endpoint. TLS termination and edge identity
+remain deployment responsibilities.

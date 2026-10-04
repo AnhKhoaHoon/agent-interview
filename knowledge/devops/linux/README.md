@@ -29,6 +29,50 @@
 - For an OOM event, distinguish a host OOM kill from an application limit and
   use kernel logs plus container/service limits to confirm it.
 
+## Practical interview scenarios
+
+### Service latency rises while host load is high
+
+- **Frame the problem:** high load average is a symptom, not proof of CPU
+  saturation. First establish which service and requests are affected.
+- **Inspect:** correlate `uptime`, `vmstat 1`, `pidstat 1`, `iostat -xz 1`,
+  `free -m`, application latency/error metrics, and the deployment timeline.
+  Runnable tasks suggest CPU pressure; blocked tasks and high I/O wait point
+  toward storage; reclaim, swap, or OOM evidence points toward memory pressure.
+- **Act:** stop or limit the verified offender, restore capacity, or roll back a
+  regression using the smallest reversible change. Preserve logs and process
+  evidence before restart when impact permits.
+- **Verify:** confirm user-facing latency/error rate, queue depth, CPU/I/O
+  pressure, and recurrence over a representative traffic window.
+
+### `df` reports a full filesystem but `du` cannot find the bytes
+
+- **Inspect:** confirm the exact mount with `df -hT`, check inodes using
+  `df -i`, mount boundaries, and deleted files still held open with `lsof +L1`.
+- **Act:** rotate/truncate only the identified log through its owning service,
+  or restart the specific process holding a deleted file after evaluating
+  impact. Fix retention/rotation or unbounded application output afterward.
+- **Verify:** confirm free blocks and inodes, application health, and that disk
+  growth has returned to an expected rate. Do not use broad deletion commands.
+
+### A systemd service fails immediately after deployment
+
+- **Inspect:** use `systemctl status SERVICE` and
+  `journalctl -u SERVICE --since ...`; compare the unit, environment, service
+  user, permissions, executable, port, mounts, and dependency availability with
+  the last known-good release.
+- **Act:** correct the verified configuration or roll back the release. Use
+  `systemd-analyze verify` for a changed unit before reloading it.
+- **Verify:** check the active process, expected listener with `ss -lntp`, local
+  health endpoint, external SLI, and stable restart count.
+
+## Concise interview delivery
+
+“I first confirm impact and recent changes, then separate CPU, memory, disk,
+I/O, and dependency failure using host and service evidence. I preserve useful
+logs, make the smallest reversible mitigation, and only call it recovered when
+the original latency/error signal and resource pressure return to baseline.”
+
 ## Common pitfalls
 
 - Restarting first destroys useful evidence and can hide a recurring cause.
@@ -36,3 +80,9 @@
   mount option, or service account instead.
 - Killing a process does not repair a full filesystem, bad dependency, or
   incorrect systemd unit.
+
+## Official references
+
+- [journalctl manual](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+- [systemd service manual](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html)
+- [Linux kernel virtual-memory documentation](https://docs.kernel.org/admin-guide/sysctl/vm.html)

@@ -22,11 +22,12 @@ function createCaptureFixture(): {
     getTracks: () => [track],
     getVideoTracks: () => []
   } as unknown as MediaStream;
-  const source = { disconnect: vi.fn() } as unknown as MediaStreamAudioSourceNode;
+  const source = { connect: vi.fn(), disconnect: vi.fn() } as unknown as MediaStreamAudioSourceNode;
   const context = {
     state: 'running',
     sampleRate: 48_000,
     createMediaStreamSource: vi.fn(() => source),
+    destination: {},
     close: vi.fn(async () => undefined)
   } as unknown as AudioContext;
   const interrupted = vi.fn();

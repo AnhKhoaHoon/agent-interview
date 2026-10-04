@@ -19,7 +19,7 @@ Build:
 - question classifier
 - prompt builder
 - LLM provider interface
-- mock LLM provider
+- deterministic LLM test double outside production source
 - one real provider integration (OpenAI Responses API, configured through backend environment variables)
 - manual text question endpoint
 - SSE streamed answer

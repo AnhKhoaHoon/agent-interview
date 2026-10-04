@@ -25,19 +25,20 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 }
 
 .app-header {
-  align-items: center;
   background: rgba(15, 23, 42, .8);
   border-bottom: 1px solid #26354d;
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  justify-content: space-between;
-  min-height: 45px;
-  padding: 7px 10px;
+  padding: 8px 10px;
 }
 
+.header-main-row { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-height: 28px; width: 100%; }
 .app-identity { align-items: center; display: flex; gap: 7px; min-width: 0; overflow: hidden; }
 .app-header h1 { color: #f8fafc; flex: 0 1 auto; font-size: 14px; letter-spacing: -.02em; line-height: 1.15; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-meta { align-items: center; display: flex; gap: 6px; min-width: 0; }
+.session-button { flex: 0 0 auto; }
+.header-controls { min-width: 0; width: 100%; }
 .role-chip { background: #1e293b; border: 1px solid #334155; border-radius: 99px; color: #cbd5e1; font-size: 9px; font-weight: 700; padding: 3px 6px; }
 .header-status { align-items: center; color: #9fb0c7; display: inline-flex; font-size: 10px; font-weight: 750; gap: 5px; }
 
@@ -93,10 +94,22 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   margin: 4px 6px 0;
   min-height: 38px;
   padding: 4px 6px;
+}
+
+/* The audio controls are deliberately part of the single application header,
+   leaving the remaining viewport to the interview conversation. */
+.app-header .capture-controls {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #26354d;
+  border-radius: 0;
+  margin: 0;
+  min-height: 32px;
+  padding: 7px 0 0;
 }
 
 .capture-summary { align-items: center; display: flex; gap: 7px; min-width: 0; }
@@ -109,6 +122,14 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .vad-state { background: rgba(14, 116, 144, .18); border: 1px solid rgba(56, 189, 248, .24); border-radius: 99px; color: #a5d8ff; font-size: 9px; font-weight: 700; padding: 4px 6px; white-space: nowrap; }
 .capture-action { align-self: center; min-width: auto; }
 .capture-actions { align-items: center; display: flex; flex-direction: row; gap: 5px; }
+.transcription-language { align-items: center; display: flex; gap: 4px; }
+.transcription-language span { color: #8fa2ba; font-size: 9px; font-weight: 700; }
+.transcription-language select { background: #17263b; border: 1px solid #3b4d67; border-radius: 6px; color: #dbeafe; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; max-width: 84px; padding: 4px 5px; }
+.transcription-language select:focus-visible { outline: 3px solid rgba(96, 165, 250, .55); outline-offset: 2px; }
+.audio-meter { align-items: center; display: flex; gap: 4px; min-width: 52px; }
+.audio-meter-label { color: #8fa2ba; font-size: 9px; font-weight: 700; }
+.audio-meter-track { background: #0b1220; border: 1px solid #334155; border-radius: 99px; display: block; height: 6px; overflow: hidden; width: 34px; }
+.audio-meter-track i { background: linear-gradient(90deg, #34d399, #60a5fa); display: block; height: 100%; min-width: 1px; transition: width .1s linear; }
 
 .capture-help {
   background: rgba(127, 29, 29, .2);
@@ -220,7 +241,9 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   .app-header { padding-left: 8px; padding-right: 8px; }
   .chat-window, .capture-diagnostics, .dev-question-form { padding-left: 10px; padding-right: 10px; }
   .conversation-panel { margin-left: 4px; margin-right: 4px; }
-  .capture-controls { grid-template-columns: minmax(0, 1fr) auto; }
+  .capture-controls { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+  .transcription-language span { display: none; }
+  .audio-meter-label { display: none; }
   .capture-actions .button { padding-left: 6px; padding-right: 6px; }
   .role-chip { display: none; }
   .chat-bubble { max-width: 100%; }

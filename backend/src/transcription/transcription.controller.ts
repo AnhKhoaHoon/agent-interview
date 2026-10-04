@@ -1,12 +1,13 @@
 import { Body, Controller, Logger, Param, Post, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { TranscriptionUploadDto } from './dto/transcription-upload.dto';
 import { transcriptionConfiguration } from './transcription.config';
 import { TranscriptionResponse, TranscriptionService, UploadedAudio } from './transcription.service';
 
 @ApiTags('transcriptions')
+@ApiBearerAuth()
 @Controller('interviews/:id/transcriptions')
 export class TranscriptionController {
   private readonly logger = new Logger(TranscriptionController.name);
@@ -23,7 +24,8 @@ export class TranscriptionController {
         audio: { type: 'string', format: 'binary' },
         durationMs: { type: 'integer', example: 4200 },
         segmentId: { type: 'string', format: 'uuid' },
-        speechEndedAtMs: { type: 'integer', example: 1735689600000 }
+        speechEndedAtMs: { type: 'integer', example: 1735689600000 },
+        language: { type: 'string', enum: ['vi', 'en'], example: 'vi' }
       }
     }
   })
@@ -43,12 +45,14 @@ export class TranscriptionController {
       segmentId: body.segmentId,
       durationMs: body.durationMs,
       speechEndedAtMs: body.speechEndedAtMs,
+      language: body.language,
       audioPresent: Boolean(audio),
       ...(audio ? { audioBytes: audio.size, mimeType: audio.mimetype } : {})
     }));
     return this.transcriptions.transcribe(interviewId, audio as UploadedAudio | undefined, body.durationMs, {
       segmentId: body.segmentId,
       speechEndedAtMs: body.speechEndedAtMs,
+      language: body.language,
       requestId
     });
   }

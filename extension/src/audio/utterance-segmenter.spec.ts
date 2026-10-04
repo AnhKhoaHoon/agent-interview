@@ -17,10 +17,12 @@ describe('UtteranceSegmenter', () => {
     expect(segmenter.observe(true, 300)).toEqual([{ type: 'speech_detected', startedAtMs: 0 }]);
     expect(segmenter.currentState()).toBe('speech_detected');
     expect(segmenter.observe(false, 350)).toEqual([]);
-    expect(segmenter.tick(1_250)).toEqual([{ type: 'finalizing', startedAtMs: 0, speechEndedAtMs: 350, finalizesAtMs: 1_550 }]);
+    const finalizingAtMs = 350 + DEFAULT_VAD_CONFIGURATION.silenceTimeoutMs;
+    const finalizedAtMs = finalizingAtMs + DEFAULT_VAD_CONFIGURATION.postRollMs;
+    expect(segmenter.tick(finalizingAtMs)).toEqual([{ type: 'finalizing', startedAtMs: 0, speechEndedAtMs: 350, finalizesAtMs: finalizedAtMs }]);
     expect(segmenter.currentState()).toBe('finalizing');
-    expect(segmenter.tick(1_549)).toEqual([]);
-    expect(segmenter.tick(1_550)).toEqual([{ type: 'segment_ready', startedAtMs: 0, speechEndedAtMs: 350, endedAtMs: 1_550 }]);
+    expect(segmenter.tick(finalizedAtMs - 1)).toEqual([]);
+    expect(segmenter.tick(finalizedAtMs)).toEqual([{ type: 'segment_ready', startedAtMs: 0, speechEndedAtMs: 350, endedAtMs: finalizedAtMs }]);
     segmenter.completeFinalization();
     expect(segmenter.currentState()).toBe('listening');
   });
@@ -30,9 +32,20 @@ describe('UtteranceSegmenter', () => {
     segmenter.observe(true, 0);
     segmenter.observe(true, 300);
     segmenter.observe(false, 400);
-    segmenter.tick(1_300);
+    segmenter.tick(400 + DEFAULT_VAD_CONFIGURATION.silenceTimeoutMs);
 
-    expect(segmenter.observe(true, 1_400)).toEqual([]);
+    expect(segmenter.observe(true, 400 + DEFAULT_VAD_CONFIGURATION.silenceTimeoutMs + 100)).toEqual([]);
+    expect(segmenter.currentState()).toBe('finalizing');
+  });
+
+  it('lets the user explicitly finish a detected interviewer utterance', () => {
+    const segmenter = new UtteranceSegmenter(DEFAULT_VAD_CONFIGURATION);
+    segmenter.observe(true, 0);
+    segmenter.observe(true, 300);
+
+    expect(segmenter.finishCurrentUtterance(700)).toEqual([
+      { type: 'finalizing', startedAtMs: 0, speechEndedAtMs: 700, finalizesAtMs: 1_000 }
+    ]);
     expect(segmenter.currentState()).toBe('finalizing');
   });
 });

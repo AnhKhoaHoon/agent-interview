@@ -34,7 +34,10 @@ When the API base URL changes for a non-local environment, update the narrowly-s
 
 ## Phase 2 flow
 
-`Start session` creates a DevOps interview, opens its SSE endpoint, and enables the development-only manual question form. `answer.token` events append to an assistant bubble until `answer.completed`. End session closes the browser `EventSource` and calls the backend end endpoint.
+`Start session` creates a DevOps interview, keeps its per-session access token
+in memory, and opens an authenticated fetch-based SSE stream. `answer.token`
+events append to an assistant bubble until `answer.completed`. End session
+aborts that stream and calls the protected backend end endpoint.
 
 Audio capture, microphone, STT, VAD, and RAG are outside the Phase 2 shell; the Phase 3 capture boundary is documented below.
 
@@ -59,6 +62,11 @@ the remaining viewport height. Development diagnostics and the manual question
 form are grouped inside collapsed **Developer tools**, so they do not displace
 the chat during normal testing.
 
+The unified application header also shows a transcription-language selector. Choose **Tiếng
+Việt** for Vietnamese interviewer audio or **English** for English. The
+selected hint travels with the next audio segment; it is not a provider key and
+does not require restarting capture.
+
 The **Interview chat** panel remains visible even when capture cannot start.
 It shows whether the session is waiting or has messages; capture guidance is
 separate so an audio-permission error does not hide the conversation history.
@@ -74,12 +82,12 @@ Phase 3 keeps audio in memory only for local diagnostics. It does not store, enc
 While capture is active, the Side Panel detects interviewer speech and shows **Listening**, **Speech detected**, or **Finalizing**. Configuration is centralized in `src/audio/vad-config.ts`:
 
 - minimum speech: 300 ms
-- silence timeout: 900 ms
+- silence timeout: 2,000 ms
 - pre-roll: 250 ms
 - post-roll: 300 ms
 - maximum utterance: 30 s
 
-One local `Blob` segment is finalized per sustained utterance after silence and post-roll. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
+One local `Blob` segment is finalized per sustained utterance after silence and post-roll. The longer timeout favors a complete question when an interviewer pauses. Once **Speech detected** appears, **Finish** can explicitly end the current question sooner; it does not stop capture, so the next question can still be heard. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
 
 ## Phase 5 transcription
 

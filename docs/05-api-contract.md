@@ -3,13 +3,24 @@
 Base:
 `/api/v1`
 
-Phase 1 stores sessions and messages in memory only. The endpoint contract is stable; PostgreSQL persistence is added in Phase 8.
+Phase 8 stores sessions, messages, transcription metadata, answer context, and
+latency records in PostgreSQL. Existing endpoint shapes remain stable.
+
+Except for health, metrics, Swagger when enabled, and interview creation, every
+endpoint containing `:id` requires `Authorization: Bearer <accessToken>`. The
+token is returned once at creation and is never accepted in a query string.
 
 ## Health
 
 GET `/health/live`
 
 GET `/health/ready`
+
+Readiness returns HTTP 200 only when the application can query PostgreSQL:
+
+```json
+{"status":"ok","checks":{"application":"ok","database":"ok"}}
+```
 
 ## Interviews
 
@@ -21,9 +32,13 @@ Response:
   "id": "uuid",
   "role": "devops",
   "status": "active",
-  "createdAt": "ISO_DATE"
+  "createdAt": "ISO_DATE",
+  "accessToken": "43-character-base64url-token"
 }
 ```
+
+The backend stores only the SHA-256 token hash. Later interview responses do
+not echo the token.
 
 POST `/interviews/:id/end`
 
@@ -38,7 +53,8 @@ POST `/interviews/:id/questions`
 Request:
 ```json
 {
-  "question": "What is Kubernetes HPA?"
+  "question": "What is Kubernetes HPA?",
+  "language": "en"
 }
 ```
 
@@ -51,6 +67,9 @@ Response:
 ```
 
 Phase 2 uses this endpoint only in development builds of the extension.
+`language` is `vi` or `en` and forces the streamed answer language for that
+question. The audio transcription endpoint applies the same rule using its
+per-segment language field.
 
 ## Transcription
 
@@ -67,6 +86,8 @@ Fields:
   finalized segment idempotent
 - `speechEndedAtMs` (optional): client-observed epoch milliseconds used only to
   calculate latency
+- `language` (optional): `vi` or `en`; a per-segment transcription hint. V1
+  supports Vietnamese and English only; omitted values default to backend `vi`.
 
 MIME parameters emitted by browser recorders, for example
 `audio/webm;codecs=opus`, are normalized to their base type before validation.
@@ -96,7 +117,19 @@ streams the retry over the existing SSE connection.
 
 GET `/interviews/:id/events`
 
-Phase 2 connects to this endpoint after creating an interview and closes the browser EventSource when the session stops or the Side Panel unmounts.
+The extension opens this endpoint with authenticated `fetch`, parses the SSE
+frames incrementally, retries interrupted streams, and aborts the request when
+the session stops or the Side Panel unmounts. Native `EventSource` is not used
+because it cannot attach the required bearer header.
+
+## Metrics
+
+GET `/metrics`
+
+Prometheus output is available only when `METRICS_ENABLED=true` and the request
+uses the backend-only `METRICS_BEARER_TOKEN`. An invalid or disabled scrape
+returns the structured `METRICS_UNAUTHORIZED` response. This credential never
+belongs in the extension.
 
 Event types:
 
@@ -151,3 +184,7 @@ Invalid request bodies use the same shape with `code: "REQUEST_INVALID"` and `re
 Audio validation errors include `AUDIO_FILE_REQUIRED`, `AUDIO_TYPE_UNSUPPORTED`,
 `AUDIO_FILE_EMPTY`, and `AUDIO_FILE_TOO_LARGE`. An invalid `durationMs` uses
 the standard structured `REQUEST_INVALID` response.
+
+Provider-facing transcription failures remain structured without exposing a
+provider response body: `STT_EMPTY_RESULT`, `STT_CREDENTIALS_REJECTED`,
+`STT_RATE_LIMITED`, `STT_AUDIO_REJECTED`, or `STT_TRANSCRIPTION_FAILED`.
