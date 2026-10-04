@@ -31,12 +31,21 @@ describe('InterviewAnswerQualityService', () => {
     }));
   });
 
-  it('rejects a technical answer that remains purely theoretical', () => {
+  it('warns instead of discarding a technical answer that remains purely theoretical', () => {
     const answer = 'Kubernetes HPA is a control mechanism based on desired state and observed utilization. Its conceptual purpose is elasticity, which means the number of replicas can change as demand changes. It belongs to the broader orchestration model where declarative resources describe intent and controllers reconcile actual state toward that intent over time across a distributed computing environment.';
 
     expect(service.evaluate(answer, classification, new InterviewAnswerPlannerService().plan(classification))).toEqual(expect.objectContaining({
-      valid: false,
-      reasons: expect.arrayContaining(['answer lacks a concrete operational detail'])
+      valid: true,
+      warnings: expect.arrayContaining(['answer could use a more concrete operational detail'])
     }));
+  });
+
+  it('recognizes a Vietnamese operational detail', () => {
+    const answer = 'GitLab tích hợp source control và CI/CD, còn Jenkins là máy chủ automation linh hoạt dựa trên plugin. GitLab phù hợp khi cần nền tảng thống nhất; Jenkins phù hợp khi phải tích hợp legacy và nhiều agent đặc thù. Trong vận hành, tôi dùng agent cô lập cho Jenkins, kiểm tra plugin định kỳ, giới hạn credentials theo từng pipeline và theo dõi queue time của controller trước khi tăng executor hoặc mở rộng agent.';
+
+    expect(service.evaluate(answer, { ...classification, type: 'comparison', responseMode: 'technical_comparison' }, {
+      ...new InterviewAnswerPlannerService().plan({ ...classification, type: 'comparison', responseMode: 'technical_comparison' }),
+      responseMode: 'technical_comparison'
+    })).toEqual(expect.objectContaining({ valid: true }));
   });
 });

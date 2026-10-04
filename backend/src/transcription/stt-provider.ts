@@ -6,6 +6,8 @@ export interface TranscriptionOptions {
   language?: string;
   /** Optional domain context supplied by backend orchestration only. */
   prompt?: string;
+  /** Backend-owned, exact technical names that improve recognition when supported. */
+  keywords?: string[];
 }
 
 export interface TranscriptionResult {

@@ -10,8 +10,18 @@ export interface TranscriptionAccepted {
   messageId: string;
   questionId: string;
   text: string;
+  understoodText?: string;
   language: string;
   durationMs: number;
+}
+
+export type CandidateContextKind = 'profile' | 'job-description';
+
+export interface CandidateContextSummary {
+  kind: 'profile' | 'job_description';
+  sourceFilename: string;
+  characterCount: number;
+  updatedAt: string;
 }
 
 export function createInterview(): Promise<InterviewSession> {
@@ -39,6 +49,43 @@ export function askQuestion(
 
 export function eventStreamUrl(interviewId: string): string {
   return `${API_BASE_URL}/interviews/${encodeURIComponent(interviewId)}/events`;
+}
+
+export function listCandidateContexts(interviewId: string, accessToken: string): Promise<CandidateContextSummary[]> {
+  return requestJson<CandidateContextSummary[]>(`/interviews/${encodeURIComponent(interviewId)}/context`, { method: 'GET' }, accessToken);
+}
+
+export function deleteCandidateContext(
+  interviewId: string,
+  accessToken: string,
+  kind: CandidateContextKind
+): Promise<{ removed: boolean }> {
+  return requestJson<{ removed: boolean }>(
+    `/interviews/${encodeURIComponent(interviewId)}/context/${kind}`,
+    { method: 'DELETE' },
+    accessToken
+  );
+}
+
+export async function uploadCandidateContext(
+  interviewId: string,
+  accessToken: string,
+  kind: CandidateContextKind,
+  document: File
+): Promise<CandidateContextSummary> {
+  const body = new FormData();
+  body.append('document', document, document.name);
+  const response = await fetch(`${API_BASE_URL}/interviews/${encodeURIComponent(interviewId)}/context/${kind}`, {
+    method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({
+      code: 'NETWORK_ERROR', message: `Backend request failed with ${response.status}`,
+      retryable: response.status >= 500, requestId: 'unavailable'
+    }))) as ApiError;
+    throw new ApiClientError(error, response.status);
+  }
+  return response.json() as Promise<CandidateContextSummary>;
 }
 
 export async function uploadTranscription(

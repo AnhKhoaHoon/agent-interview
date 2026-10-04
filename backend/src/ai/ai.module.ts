@@ -29,6 +29,7 @@ import { InterviewAnswerQualityService } from './quality/interview-answer-qualit
     PromptBuilderService,
     LlmProviderFactory,
     AnswerValidatorService,
+    TranscriptNormalizerService,
     InterviewQuestionGateService,
     InterviewAnswerPlannerService,
     InterviewAnswerQualityService

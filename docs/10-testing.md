@@ -11,6 +11,8 @@ Backend:
 - answer validator
 - deterministic provider test doubles kept outside production source
 - interview state transitions
+- CV/JD document extraction, validation, bounded prompt context, and no-
+  fabrication prompt rules
 
 Extension:
 - state reducer/store
@@ -24,6 +26,8 @@ Phase 2 covers reducer behavior for separate interviewer/assistant bubbles, toke
 Phase 3 capture tests verify that the active tab ID is used to obtain a Chrome media stream ID, diagnostics report the audio track/sample rate, and Stop or a tab-navigation interruption stops tracks and closes the AudioContext.
 
 Phase 4 tests verify VAD state transitions: silence and short noise are ignored, sustained speech enters `speech_detected`, configured silence or the explicit Finish action enters `finalizing`, post-roll produces one ready segment, and finalization does not overlap a new utterance.
+They also verify that a speech candidate cannot raise the adaptive noise floor
+before the minimum-speech duration has been established.
 The audio-format suite also verifies that each utterance receives a complete
 RIFF/WAVE header and correct PCM payload length, preventing the corrupted WebM
 uploads found during real-provider smoke testing.
@@ -65,6 +69,11 @@ topic-match fallback, and prompt grounding that never exposes retrieval or
 source names to the candidate. The full knowledge index job is intentionally
 not part of normal tests because it calls the configured embedding provider.
 
+Phase 11 tests verify authenticated per-interview CV/JD upload, document type,
+size, empty-text validation, metadata-only listing, text normalization, prompt
+bounding, and that a profile is treated only as verified evidence rather than a
+license to invent experience.
+
 ## Interview-answer quality evaluation
 
 The test suite must assess answer quality, not only whether an LLM returned text.
@@ -93,12 +102,18 @@ Markdown list formatting as non-blocking presentation warnings so a usable
 answer is not discarded after streaming, in addition to the hard safety and
 length validator.
 
+Transcription and classification tests cover English and Vietnamese DevOps
+terms, selected-language prompts, controlled phonetic aliases, and Vietnamese
+comparison wording. The original STT text must remain visible even when a
+controlled interpretation is passed to answer orchestration.
+
 The `devops-interview-answer-v2` deterministic evaluation suite covers
 definition, comparison, troubleshooting, scenario, architecture, command, and
 behavioral modes. Every generated prompt must include its theory-to-practice
-delivery flow, and every deterministic fixture answer must pass the same runtime quality gate.
-Technical fixtures fail when they contain only theory and no configuration,
-command/check, log/metric, rollout, trade-off, or verification detail.
+delivery flow, and every deterministic fixture answer must pass the same runtime
+quality gate. A technical answer with no configuration, command/check,
+log/metric, rollout, trade-off, or verification detail receives a quality
+warning for evaluation; it is not hidden after streaming solely for that reason.
 
 ## Integration tests
 
@@ -147,6 +162,8 @@ Verify:
 Maintain deterministic fixtures:
 - Kubernetes definition question
 - Terraform comparison question
+- Infrastructure-as-Code definition and destructive-plan scenario
+- Git shared-history/recovery question
 - CrashLoopBackOff troubleshooting question
 - AWS architecture scenario
 - noisy audio

@@ -1,12 +1,13 @@
 import { devopsTranscriptionPrompt } from '../../roles/devops/devops-transcription-prompt';
-import { configuredSttLanguage } from './openai-stt.provider';
+import { configuredSttLanguage, usesKeywordGuidance } from './openai-stt.provider';
 
 describe('configuredSttLanguage', () => {
   it('defaults to Vietnamese when no environment override exists', () => {
     const original = process.env.STT_LANGUAGE;
     delete process.env.STT_LANGUAGE;
     expect(configuredSttLanguage()).toBe('vi');
-    process.env.STT_LANGUAGE = original;
+    if (original === undefined) delete process.env.STT_LANGUAGE;
+    else process.env.STT_LANGUAGE = original;
   });
 
   it('accepts the two supported normalized language hints', () => {
@@ -26,5 +27,13 @@ describe('devopsTranscriptionPrompt', () => {
     expect(devopsTranscriptionPrompt('vi')).toContain('Kubernetes');
     expect(devopsTranscriptionPrompt('en')).toContain('English DevOps technical interview');
     expect(devopsTranscriptionPrompt('en')).toContain('Terraform');
+    expect(devopsTranscriptionPrompt('en')).toContain('Do not translate technical names');
+  });
+});
+
+describe('usesKeywordGuidance', () => {
+  it('only enables provider keyword guidance for the model that supports it', () => {
+    expect(usesKeywordGuidance('gpt-transcribe')).toBe(true);
+    expect(usesKeywordGuidance('gpt-4o-mini-transcribe')).toBe(false);
   });
 });

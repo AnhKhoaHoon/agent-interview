@@ -6,7 +6,7 @@ a staging or production deployment.
 
 ## Current deployment status
 
-The implemented product currently reaches Phase 9 of the roadmap:
+The implemented product currently reaches Phase 11 of the roadmap:
 
 - tab-audio capture, VAD, transcription, automatic answers, SSE streaming, and
   bounded conversation context are implemented;
@@ -18,6 +18,10 @@ The implemented product currently reaches Phase 9 of the roadmap:
   backup/restore tools are implemented;
 - the runtime image contains production dependencies only and runs as the
   unprivileged `node` user.
+- curated DevOps knowledge is indexed explicitly into pgvector and is added to
+  an answer prompt only when the retrieved topic and similarity are relevant.
+- a per-interview CV/profile and optional job description can supply verified
+  candidate facts without storing raw upload files.
 
 Therefore:
 
@@ -111,7 +115,8 @@ LLM_MAX_RETRIES=2
 
 STT_PROVIDER=openai
 STT_API_KEY=<your-backend-only-openai-key>
-STT_MODEL=gpt-4o-mini-transcribe
+# Quality-first technical interview transcription (supports en/vi hints)
+STT_MODEL=gpt-transcribe
 # V1 supports Vietnamese (vi) and English (en) only
 STT_LANGUAGE=vi
 STT_TIMEOUT_MS=20000
@@ -130,6 +135,9 @@ DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agent_interview
 REDIS_URL=redis://redis:6379
 STT_MAX_AUDIO_BYTES=10485760
 STT_MAX_DURATION_MS=31000
+CANDIDATE_CONTEXT_MAX_BYTES=2097152
+CANDIDATE_CONTEXT_MAX_CHARACTERS=30000
+CANDIDATE_CONTEXT_PROMPT_MAX_CHARACTERS=8000
 CORS_ORIGINS=http://localhost:5173,chrome-extension://YOUR_EXTENSION_ID
 RATE_LIMIT_ENABLED=false
 SWAGGER_ENABLED=true
@@ -217,6 +225,17 @@ Swagger is available locally at:
 ```text
 http://localhost:3000/api/docs
 ```
+
+### Phase 11 CV and JD context
+
+After starting an interview session, open **Profile context** in the Side Panel
+and attach a text-based PDF, TXT, or Markdown CV; attach a JD when preparing
+for a specific role. The file travels only to the authenticated backend. Raw
+bytes are discarded after text extraction, while normalized text is retained in
+PostgreSQL with that interview so later turns can use verified facts. Replacing
+an upload replaces its stored text; **Remove** deletes that context immediately.
+These are personal documents: do not use a shared database profile if that
+retention is not intended.
 
 ## 3. Build the Chrome Extension
 

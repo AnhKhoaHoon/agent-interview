@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import OpenAI, { toFile } from 'openai';
+import type { TranscriptionCreateParamsNonStreaming } from 'openai/resources/audio/transcriptions';
 import { SttProvider, TranscriptionOptions, TranscriptionResult } from '../stt-provider';
 
 @Injectable()
@@ -30,12 +31,18 @@ export class OpenAiSttProvider implements SttProvider {
     });
     try {
       const file = await toFile(audio, options.filename, { type: options.mimeType });
-      const response = await client.audio.transcriptions.create({
+      const request = {
         file,
         model,
         ...(language ? { language } : {}),
-        ...(options.prompt ? { prompt: options.prompt } : {})
-      });
+        ...(options.prompt ? { prompt: options.prompt } : {}),
+        // `keywords` and `languages` are supported by gpt-transcribe. Keep
+        // them provider-local so the generic STT contract stays reusable.
+        ...(usesKeywordGuidance(model) && options.keywords?.length
+          ? { keywords: options.keywords, languages: [language] }
+          : {})
+      };
+      const response = await client.audio.transcriptions.create(request as unknown as TranscriptionCreateParamsNonStreaming);
       const languageResponse = response as { languages?: Array<{ code?: string }> };
       const detectedLanguage = languageResponse.languages?.[0]?.code ?? language ?? 'unknown';
       this.logger.log(JSON.stringify({
@@ -62,6 +69,11 @@ export class OpenAiSttProvider implements SttProvider {
       throw error;
     }
   }
+}
+
+/** `keywords` is currently an opt-in request field for this OpenAI model only. */
+export function usesKeywordGuidance(model: string): boolean {
+  return model === 'gpt-transcribe';
 }
 
 export function configuredSttLanguage(value = process.env.STT_LANGUAGE ?? 'vi'): 'vi' | 'en' {

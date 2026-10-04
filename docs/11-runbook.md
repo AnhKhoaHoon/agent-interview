@@ -101,6 +101,19 @@ If `answer.error` is retryable, use **Retry answer** from the matching
 assistant bubble. Do not re-upload audio: the interviewer transcript and its
 question ID are already preserved.
 
+## CV or JD upload fails
+
+Use a text-based PDF, TXT, or Markdown file under the configured 2 MiB default.
+A scanned/image-only PDF has no extractable text and returns
+`CANDIDATE_DOCUMENT_UNREADABLE`; export it as a text-based PDF or TXT instead.
+The upload needs the active session's bearer token, so start a new session
+before attaching context. The API intentionally lists metadata only; it does
+not return stored CV/JD text to the extension.
+
+Use **Remove** in Profile context (or the authenticated `DELETE` context API)
+to delete the normalized CV or JD text from that interview. Replacing a document
+also replaces its previous extracted text; raw upload bytes are never retained.
+
 ## SSE disconnects
 
 Check:

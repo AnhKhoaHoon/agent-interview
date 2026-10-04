@@ -30,7 +30,7 @@ Listen -> Transcribe -> Understand -> Answer -> Continue.
 ## Curated DevOps knowledge
 
 Interview-oriented knowledge cards for Linux, networking, Docker, Kubernetes,
-AWS, Terraform, CI/CD, Ansible, observability, and security are maintained in
+AWS, Infrastructure as Code, Terraform, Git, CI/CD, Ansible, observability, and security are maintained in
 [knowledge/devops](knowledge/README.md). Phase 10 indexes these cards into
 pgvector through the explicit `npm run knowledge:index` job; see the deployment
 guide before enabling retrieval in an environment.

@@ -9,6 +9,17 @@
 - Modules provide reusable interfaces; variables and outputs define their
   contract. Keep environment-specific values outside module implementation.
 
+### Terraform backends: a precise interview answer
+
+- Terraform uses the `local` backend by default, and supports several built-in
+  backends. It is incorrect to say Terraform has only two backend types.
+- A `remote` backend is one particular backend; teams commonly choose a remote,
+  shared backend for collaboration because it can provide controlled state
+  access and, where supported, locking/version recovery.
+- A root module configures one backend at a time. The choice should follow state
+  sensitivity, team concurrency, access control, recovery needs, and the
+  platform's locking behavior rather than a product name alone.
+
 ## Safe workflow
 
 1. Format and validate code: `terraform fmt -check` and `terraform validate`.
@@ -91,5 +102,6 @@ verify both the service and a clean follow-up plan after apply.”
 
 - [Terraform state purpose](https://developer.hashicorp.com/terraform/language/state/purpose)
 - [Terraform state locking](https://developer.hashicorp.com/terraform/language/state/locking)
+- [Terraform backend configuration](https://developer.hashicorp.com/terraform/language/backend)
 - [Manage resource drift](https://developer.hashicorp.com/terraform/tutorials/state/resource-drift)
 - [Refactor modules with `moved` blocks](https://developer.hashicorp.com/terraform/language/modules/develop/refactoring)

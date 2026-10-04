@@ -83,10 +83,11 @@ export class VadPipeline {
     if (!this.analyser || !this.sampleBuffer) return;
     this.analyser.getByteTimeDomainData(this.sampleBuffer);
     const level = this.rms(this.sampleBuffer);
-    if (this.segmenter.currentState() === 'listening') {
-      this.noiseFloor = this.configuration.noiseFloorSmoothing * this.noiseFloor
-        + (1 - this.configuration.noiseFloorSmoothing) * level;
-    }
+    const thresholdBeforeUpdate = adaptiveSpeechThreshold(this.noiseFloor, this.configuration);
+    // Do not learn a speech candidate as the noise floor. The previous logic
+    // raised the threshold above a quiet, steady voice before the 300ms speech
+    // minimum elapsed, so no utterance was ever created for STT.
+    if (shouldUpdateNoiseFloor(level, thresholdBeforeUpdate)) this.noiseFloor = nextNoiseFloor(this.noiseFloor, level, this.configuration);
     const threshold = adaptiveSpeechThreshold(this.noiseFloor, this.configuration);
     const nowMs = performance.now();
     if (nowMs - this.lastLevelUpdateMs >= 100) {
@@ -160,4 +161,12 @@ export function adaptiveSpeechThreshold(noiseFloor: number, configuration: VadCo
     configuration.maximumAdaptiveThreshold,
     Math.max(configuration.rmsThreshold, noiseFloor * configuration.speechToNoiseRatio)
   );
+}
+
+export function nextNoiseFloor(noiseFloor: number, level: number, configuration: VadConfiguration): number {
+  return configuration.noiseFloorSmoothing * noiseFloor + (1 - configuration.noiseFloorSmoothing) * level;
+}
+
+export function shouldUpdateNoiseFloor(level: number, threshold: number): boolean {
+  return level < threshold;
 }

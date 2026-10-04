@@ -4,11 +4,12 @@ import { Classification, QuestionType, ResponseMode } from '../contracts';
 const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
   ['docker-compose', /\b(docker[ -]?compose|compose\.ya?ml)\b/i],
   ['kubernetes', /\b(kubernetes|k8s|pod|deployment|helm|hpa|ingress|crashloopbackoff)\b/i],
+  ['iac', /\b(infrastructure as code|iac|cloudformation|pulumi)\b/i],
   ['terraform', /\b(terraform|tfstate|state file|iac)\b/i],
   ['docker', /\b(docker|container|image|dockerfile)\b/i],
   ['aws', /\b(aws|ec2|s3|vpc|lambda|eks|rds)\b/i],
   ['jenkins', /\bjenkins\b/i],
-  ['gitlab-ci', /\b(gitlab ci|\.gitlab-ci\.ya?ml)\b/i],
+  ['gitlab-ci', /\b(gitlab(?: ci)?|\.gitlab-ci\.ya?ml)\b/i],
   ['argocd', /\b(argo ?cd|argocd)\b/i],
   ['cicd', /\b(ci\/cd|pipeline|github actions)\b/i],
   ['prometheus', /\bprometheus\b/i],
@@ -31,7 +32,7 @@ const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
 export class QuestionClassifierService {
   classify(question: string): Classification {
     const type = this.detectType(question);
-    const category = CATEGORY_MATCHERS.find(([, matcher]) => matcher.test(question))?.[0] ?? (type === 'troubleshooting' ? 'troubleshooting' : 'general');
+    const category = this.detectCategory(question, type);
     return {
       role: 'devops',
       category,
@@ -43,7 +44,7 @@ export class QuestionClassifierService {
   }
 
   private detectType(question: string): QuestionType {
-    if (/\b(compare|difference|vs\.?|versus)\b/i.test(question)) return 'comparison';
+    if (/(?:\bcompare\b|\bdifference\b|\bvs\.?\b|\bversus\b|sự\s+khác\s+biệt|khác\s+nhau|so\s+sánh|phân\s+biệt|(?:việc|vấn\s+đề)\s+giữa)/iu.test(question)) return 'comparison';
     if (/\b(error|failed|failure|not working|crashloop|debug|troubleshoot|incident)\b/i.test(question)) return 'troubleshooting';
     if (/\b(design|architecture|architect)\b/i.test(question)) return 'architecture';
     if (/\b(command|cli|kubectl|how would you check)\b/i.test(question)) return 'command';
@@ -51,6 +52,14 @@ export class QuestionClassifierService {
     if (/\b(what would you|how would you|scenario)\b/i.test(question)) return 'scenario';
     if (/\b(best practice|best-practice)\b/i.test(question)) return 'best-practice';
     return 'definition';
+  }
+
+  private detectCategory(question: string, type: QuestionType): string {
+    // GitLab and Jenkins in one short question is an interview comparison of
+    // CI/CD tools, even if STT drops words such as "sự khác biệt".
+    if (type === 'comparison' && /\bgitlab\b/i.test(question) && /\bjenkins\b/i.test(question)) return 'cicd';
+    return CATEGORY_MATCHERS.find(([, matcher]) => matcher.test(question))?.[0]
+      ?? (type === 'troubleshooting' ? 'troubleshooting' : 'general');
   }
 
   private detectLevel(question: string): Classification['level'] {

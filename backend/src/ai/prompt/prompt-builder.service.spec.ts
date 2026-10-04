@@ -120,4 +120,21 @@ describe('PromptBuilderService', () => {
     expect(prompt.input).toContain('Referenced interviewer question: What is Kubernetes HPA?');
     expect(prompt.input).toContain('Current interviewer question: Why?');
   });
+
+  it('uses CV facts and a job description as bounded data without authorizing invented experience', () => {
+    const classification = {
+      role: 'devops' as const, category: 'kubernetes', type: 'experience' as const,
+      level: 'middle' as const, intent: 'Experience with Kubernetes', responseMode: 'behavioral_experience' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'Tell me about your Kubernetes experience.', classification, history: [], plan: planner.plan(classification),
+      candidateProfile: 'Built deployment automation with Kubernetes and Terraform.',
+      jobDescription: 'Requires Kubernetes, AWS, and incident response.'
+    });
+
+    expect(prompt.input).toContain('Use only explicit, verified facts from this profile');
+    expect(prompt.input).toContain('Built deployment automation with Kubernetes and Terraform.');
+    expect(prompt.input).toContain('Do not claim the candidate has a requirement unless the candidate profile explicitly supports it');
+    expect(prompt.input).toContain('Requires Kubernetes, AWS, and incident response.');
+  });
 });

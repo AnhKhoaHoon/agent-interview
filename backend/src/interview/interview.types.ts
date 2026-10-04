@@ -7,6 +7,8 @@ export interface InterviewMessage {
   interviewId: string;
   role: MessageRole;
   content: string;
+  /** Ephemeral AI interpretation of an interviewer transcript; raw content is retained. */
+  understoodText?: string;
   status: MessageStatus;
   sequenceNo: number;
   createdAt: string;

@@ -2,7 +2,10 @@ import { KnowledgeRetrievalService } from './knowledge-retrieval.service';
 
 describe('KnowledgeRetrievalService', () => {
   const original = process.env.RAG_MIN_SIMILARITY;
-  afterEach(() => { process.env.RAG_MIN_SIMILARITY = original; });
+  afterEach(() => {
+    if (original === undefined) delete process.env.RAG_MIN_SIMILARITY;
+    else process.env.RAG_MIN_SIMILARITY = original;
+  });
 
   it('uses only sufficiently similar chunks that match the classified topic', async () => {
     process.env.RAG_MIN_SIMILARITY = '0.72';
@@ -28,10 +31,20 @@ describe('KnowledgeRetrievalService', () => {
   });
 
   it('allows an explicit related knowledge category for a narrow classified tool', async () => {
+    process.env.RAG_MIN_SIMILARITY = '0.72';
     const service = new KnowledgeRetrievalService(
       { getConfiguredProvider: () => ({ embed: async () => [[0.1, 0.2]] }) } as never,
       { search: async () => [{ sourcePath: 'devops/cicd/README.md', category: 'cicd', text: 'Argo CD uses GitOps.', score: 0.95 }] } as never
     );
     await expect(service.retrieve('Argo CD là gì?', 'argocd')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
+  });
+
+  it('allows Terraform knowledge for an IaC question when the dedicated card is not the top match', async () => {
+    process.env.RAG_MIN_SIMILARITY = '0.72';
+    const service = new KnowledgeRetrievalService(
+      { getConfiguredProvider: () => ({ embed: async () => [[0.1, 0.2]] }) } as never,
+      { search: async () => [{ sourcePath: 'devops/terraform/README.md', category: 'terraform', text: 'State and reviewed plans.', score: 0.95 }] } as never
+    );
+    await expect(service.retrieve('What is Infrastructure as Code?', 'iac')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
   });
 });

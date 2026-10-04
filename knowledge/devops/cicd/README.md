@@ -302,6 +302,31 @@ network, compliance, scale, skills, and migration constraints.”
 - **Verify:** confirm the old credential is unusable and review audit activity
   for unauthorized use rather than assuming deletion removed exposure.
 
+### A pipeline deploys the wrong artifact
+
+- **Inspect:** compare the running image digest, commit SHA, build provenance,
+  release metadata, and GitOps manifest with the approved change. A mutable tag
+  is not enough evidence that the intended artifact is running.
+- **Act:** halt further promotion, restore the known-good immutable digest when
+  the release is causal, then fix the promotion boundary so CI promotes one
+  verified build rather than rebuilding per environment.
+- **Verify:** confirm the expected digest is deployed, the service SLO has
+  recovered, and the next release has a traceable commit-to-artifact-to-deploy
+  chain.
+
+### A self-hosted runner is suspected of compromise
+
+- **Act first:** take the runner out of service, revoke or rotate credentials
+  reachable from it, and preserve appropriate audit evidence. Do not continue
+  running trusted deployment jobs on it to save queue time.
+- **Investigate:** identify jobs, repositories, tokens, network access, image
+  provenance, and workspace persistence that could have been exposed.
+- **Recover and prevent:** rebuild from a trusted image, use ephemeral isolated
+  runners where practical, scope credentials per job/environment, and keep
+  untrusted pull requests away from privileged runners.
+- **Verify:** exercise a least-privilege deployment path, confirm revoked
+  credentials fail, and review runner and cloud audit logs for follow-on use.
+
 ## Concise interview delivery
 
 “My pipeline builds once, proves the artifact with layered tests and security

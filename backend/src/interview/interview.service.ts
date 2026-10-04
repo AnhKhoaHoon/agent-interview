@@ -5,10 +5,12 @@ import { InterviewQuestionGateService } from '../ai/gate/interview-question-gate
 import { InterviewAnswerPlannerService } from '../ai/planner/interview-answer-planner.service';
 import { PromptBuilderService } from '../ai/prompt/prompt-builder.service';
 import { InterviewAnswerQualityService } from '../ai/quality/interview-answer-quality.service';
+import { TranscriptNormalizerService } from '../ai/normalizer/transcript-normalizer.service';
 import { LlmProviderFactory } from '../ai/providers/llm-provider.factory';
 import { InterviewLanguage } from '../ai/contracts';
 import { InterviewRepository } from '../persistence/interview.repository';
 import { KnowledgeRetrievalService } from '../knowledge/knowledge-retrieval.service';
+import { CandidateContextService } from '../candidate-context/candidate-context.service';
 import { DEVOPS_CATEGORY_KEYWORDS } from '../roles/devops/devops-role.config';
 import { InterviewStreamService } from '../stream/interview-stream.service';
 import { Interview, InterviewMessage } from './interview.types';
@@ -25,8 +27,10 @@ export class InterviewService {
     private readonly promptBuilder: PromptBuilderService,
     private readonly providers: LlmProviderFactory,
     private readonly quality: InterviewAnswerQualityService,
+    private readonly normalizer: TranscriptNormalizerService,
     private readonly repository: InterviewRepository,
-    private readonly knowledge: KnowledgeRetrievalService
+    private readonly knowledge: KnowledgeRetrievalService,
+    private readonly candidateContext: CandidateContextService
   ) {}
 
   async create(): Promise<Omit<Interview, 'messages'> & { accessToken: string }> {
@@ -79,18 +83,23 @@ export class InterviewService {
     const transcript = await this.addMessage(interview, 'interviewer', content, 'completed', {
       speechEndedAtMs: metadata.speechEndedAtMs
     });
+    const interpretation = this.normalizer.interpret(transcript.content);
+    const question = interpretation.text === transcript.content
+      ? transcript
+      : { ...transcript, understoodText: interpretation.text };
     this.streams.emit(id, {
       type: 'question.transcribed',
       data: {
-        messageId: transcript.id,
-        questionId: transcript.id,
+        messageId: question.id,
+        questionId: question.id,
         text: transcript.content,
+        ...(question.understoodText ? { understoodText: question.understoodText } : {}),
         ...(metadata.segmentId ? { segmentId: metadata.segmentId } : {}),
         ...(metadata.speechEndedAtMs ? { speechEndedAtMs: metadata.speechEndedAtMs } : {})
       }
     });
-    await this.startAnswerGeneration(await this.requireInterview(id), transcript, metadata.answerLanguage);
-    return transcript;
+    await this.startAnswerGeneration(await this.requireInterview(id), question, metadata.answerLanguage);
+    return question;
   }
 
   async retryAnswer(
@@ -144,6 +153,7 @@ export class InterviewService {
     const { classification } = assessment;
     const plan = this.answerPlanner.plan(classification);
     const knowledge = await this.knowledge.retrieve(assessment.normalizedQuestion, classification.category);
+    const candidateContext = await this.candidateContext.promptContext(interview.id);
     const provider = this.providers.getConfiguredProvider();
     await this.repository.startAiResponse({
       id: randomUUID(), messageId: answer.id, provider: provider.name,
@@ -158,6 +168,8 @@ export class InterviewService {
     const prompt = this.promptBuilder.build({
       question: assessment.normalizedQuestion, classification, history, plan,
       ...(knowledge ? { knowledge: knowledge.chunks } : {}),
+      ...(candidateContext?.profile ? { candidateProfile: candidateContext.profile } : {}),
+      ...(candidateContext?.jobDescription ? { jobDescription: candidateContext.jobDescription } : {}),
       ...(answerLanguage ? { answerLanguage } : {}),
       ...(assessment.isFollowUp && assessment.referenceQuestion
         ? { followUp: { referenceQuestion: assessment.referenceQuestion } }

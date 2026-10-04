@@ -22,6 +22,7 @@ V1 default:
 - Docker Compose
 - Kubernetes
 - AWS
+- Infrastructure as Code
 - Terraform
 - Ansible
 - CI/CD

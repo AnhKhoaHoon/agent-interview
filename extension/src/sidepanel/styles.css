@@ -87,6 +87,17 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .error-banner summary span { align-items: center; background: rgba(251, 113, 133, .18); border-radius: 99px; display: inline-flex; font-size: 8px; font-weight: 900; height: 15px; justify-content: center; width: 15px; }
 .error-banner p { border-top: 1px solid rgba(252, 165, 165, .18); color: #fda4af; margin: 0; padding: 6px 7px; }
 
+.candidate-context-controls { border-bottom: 1px solid #26354d; color: #aebdd0; flex: 0 0 auto; font-size: 10px; margin: 0 6px; }
+.candidate-context-controls summary { align-items: center; cursor: pointer; display: flex; font-weight: 750; justify-content: space-between; list-style: none; padding: 6px 2px; }
+.candidate-context-controls summary::-webkit-details-marker { display: none; }
+.candidate-context-controls summary span { color: #7dd3fc; font-size: 9px; }
+.candidate-context-controls > p { color: #8fa2ba; line-height: 1.4; margin: 0 2px 7px; }
+.candidate-context-actions { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 7px; }
+.candidate-context-item { display: grid; gap: 3px; min-width: 0; }
+.candidate-context-item .button { justify-self: start; }
+.candidate-context-item .text-button { justify-self: start; }
+.candidate-context-item small { color: #7e91a9; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .capture-controls {
   align-items: center;
   background: #111c2e;
@@ -218,6 +229,8 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .streaming-indicator i:nth-child(3) { animation-delay: .3s; }
 @keyframes stream-dot { 50% { opacity: .25; transform: translateY(-2px); } }
 .chat-bubble p { color: #e7eef8; font-size: 15px; line-height: 1.58; margin: 0; white-space: pre-wrap; }
+.chat-bubble .transcript-interpretation { border-left: 2px solid #38bdf8; color: #b9e6ff; font-size: 13px; margin-top: 9px; padding-left: 9px; }
+.chat-bubble .transcript-interpretation small { color: #7dd3fc; font-size: 9px; font-weight: 800; letter-spacing: .06em; margin-bottom: 3px; text-transform: uppercase; }
 .keywords { color: #86efac; font-size: 12px; font-weight: 600; margin-top: 10px; }
 .retry-button { background: transparent; border: 0; color: #bfdbfe; cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 10px; padding: 0; text-decoration: underline; }
 

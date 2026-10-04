@@ -6,6 +6,7 @@ export interface KnowledgeContext { chunks: RetrievedKnowledgeChunk[]; }
 
 const RELATED_KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
   'docker-compose': ['docker'],
+  iac: ['terraform', 'ansible', 'aws'],
   jenkins: ['cicd'],
   'gitlab-ci': ['cicd'],
   argocd: ['cicd'],

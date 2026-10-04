@@ -77,6 +77,18 @@ Phase 9 adds `http.request_completed` structured events with request ID,
 method, path, status, and duration. Authorization headers, bearer tokens,
 provider keys, prompts, transcripts, and audio contents are excluded.
 
+Phase 10 emits `rag.index.completed` with document/chunk totals and
+`rag.retrieved` with only the selected category, chunk count, and similarity
+range. `rag.fallback` records a safe reason such as `disabled`, `no_match`, or
+`provider_unavailable`. None of these events contains a question, Markdown
+chunk, embedding, prompt, transcript, or credential. This makes relevance and
+index health observable without turning interview content into logs.
+
+Phase 11 emits `candidate_context.updated` and `candidate_context.removed` with
+only the interview ID, context kind, and character count where applicable. PDF
+parse failures record an error name only. CV/JD text, raw bytes, filenames, and
+prompt content are excluded from logs.
+
 ### STT diagnostics
 
 The transcription path emits structured `stt.upload.received`,

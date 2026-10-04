@@ -23,6 +23,9 @@ export function ChatBubble({ message, onRetryTranscription, onRetryAnswer }: Cha
         {message.status === 'streaming' && <span className="streaming-indicator" aria-label="Answer is streaming"><i /><i /><i /></span>}
       </header>
       <p>{message.content || '…'}</p>
+      {isInterviewer && message.understoodText && (
+        <p className="transcript-interpretation"><small>Interpreted for the answer</small>{message.understoodText}</p>
+      )}
       {message.status === 'failed' && message.retryable && message.role === 'interviewer' && onRetryTranscription && <button className="retry-button" type="button" onClick={() => onRetryTranscription(message.id)}>Retry transcription</button>}
       {message.status === 'failed' && message.retryable && message.role === 'assistant' && message.questionId && onRetryAnswer && <button className="retry-button" type="button" onClick={() => onRetryAnswer(message.questionId!)}>Retry answer</button>}
     </article>

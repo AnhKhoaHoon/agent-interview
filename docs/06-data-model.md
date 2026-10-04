@@ -58,19 +58,19 @@ Roles:
 - completed_at TIMESTAMP
 - created_at TIMESTAMP
 
-## candidate_profiles (later)
+## interview_candidate_contexts (Phase 11)
 
-- id UUID
-- role
-- level
-- profile_json JSONB
+- interview_id UUID FK
+- kind VARCHAR (`profile` or `job_description`), unique per interview
+- source_filename VARCHAR
+- extracted_text TEXT
+- updated_at TIMESTAMP
 
-## job_descriptions (later)
-
-- id UUID
-- title
-- content
-- extracted_json JSONB
+The raw uploaded CV/JD file is not stored. Only bounded, normalized extracted
+text is persisted and it is deleted when the owning interview is deleted.
+Context metadata APIs return filename, kind, length, and timestamp, never the
+stored text. The owner can also remove either context explicitly before the
+interview is deleted.
 
 ## knowledge_documents (Phase 10)
 

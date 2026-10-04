@@ -2,6 +2,7 @@ import { ConversationMessage } from '../../src/ai/contracts';
 import { Interview, InterviewMessage } from '../../src/interview/interview.types';
 import {
   CompleteAiResponseInput,
+  CandidateContextRecord,
   InterviewRepository,
   PersistedTranscription,
   SaveTranscriptionInput,
@@ -13,6 +14,7 @@ export class InMemoryInterviewRepository extends InterviewRepository {
   private readonly transcriptions = new Map<string, PersistedTranscription>();
   private readonly contexts = new Map<string, ConversationMessage[]>();
   private readonly accessTokenHashes = new Map<string, string>();
+  private readonly candidateContexts = new Map<string, CandidateContextRecord>();
 
   async createInterview(interview: Interview, accessTokenHash: string): Promise<void> {
     this.interviews.set(interview.id, this.cloneInterview(interview));
@@ -83,6 +85,22 @@ export class InMemoryInterviewRepository extends InterviewRepository {
   }
 
   async completeAiResponse(_input: CompleteAiResponseInput): Promise<void> {}
+
+  async upsertCandidateContext(interviewId: string, context: Omit<CandidateContextRecord, 'updatedAt'>): Promise<CandidateContextRecord> {
+    const persisted: CandidateContextRecord = { ...context, updatedAt: new Date().toISOString() };
+    this.candidateContexts.set(`${interviewId}:${context.kind}`, persisted);
+    return { ...persisted };
+  }
+
+  async listCandidateContexts(interviewId: string): Promise<CandidateContextRecord[]> {
+    return [...this.candidateContexts.entries()]
+      .filter(([key]) => key.startsWith(`${interviewId}:`))
+      .map(([, context]) => ({ ...context }));
+  }
+
+  async deleteCandidateContext(interviewId: string, kind: CandidateContextRecord['kind']): Promise<boolean> {
+    return this.candidateContexts.delete(`${interviewId}:${kind}`);
+  }
 
   private cloneInterview(interview: Interview): Interview {
     return { ...interview, messages: interview.messages.map((message) => ({ ...message })) };

@@ -51,6 +51,8 @@ HPA • Metrics • Scaling
 - interview history
 - latency metrics
 - error recovery
+- optional per-interview CV/profile and job-description context, used only for
+  verified experience-aware answers
 
 ## Out of scope for first production release
 

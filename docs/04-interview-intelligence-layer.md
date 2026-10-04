@@ -33,6 +33,13 @@ Responsibilities:
 - preserve technical terms
 - avoid aggressive rewriting
 
+The original provider transcript remains the interviewer message and is the
+audit trail for what was heard. For answer orchestration only, the normalizer
+may apply a small, controlled alias list for unambiguous DevOps STT mistakes
+(for example, a phonetic `Zen tin` corrected to `Jenkins`). It never invents a
+sentence, translates the question, or silently replaces the displayed text.
+When an alias is applied, the Side Panel shows the interpreted text separately.
+
 ## 2. Question Classifier
 
 Output:
@@ -56,6 +63,7 @@ DevOps categories:
 - docker-compose
 - kubernetes
 - aws
+- iac
 - terraform
 - ansible
 - cicd
@@ -98,11 +106,11 @@ Question types:
 ### Question gate
 
 The gate owns the decision between answering and asking a clarifying question.
-It uses the normalized transcript, not the displayed transcript. For V1 it only
-switches to `clarification` when the utterance is genuinely incomplete (for
-example, `What about?`), so a short but meaningful technical term such as `HPA`
-is still answerable. The transcript shown in the chat is never rewritten by this
-step.
+It uses the narrowly normalized transcript, not the displayed transcript. For
+V1 it only switches to `clarification` when the utterance is genuinely
+incomplete (for example, `What about?`), so a short but meaningful technical
+term such as `HPA` is still answerable. The transcript shown in the chat is
+never rewritten by this step.
 
 In Phase 7 the gate also detects contextual follow-ups. A referential question
 such as `Why?`, `What about cost?`, or `How would you verify that?` can inherit
@@ -117,11 +125,20 @@ Context order:
 1. current question
 2. recent conversation
 3. role prompt
-4. candidate profile if available
-5. job description if available
+4. verified candidate profile if attached
+5. job description if attached
 6. retrieved knowledge if RAG enabled
 
 Keep context bounded.
+
+Phase 11 accepts a per-interview CV/profile and optional job description. The
+backend extracts normalized text from a PDF, TXT, or Markdown document, stores
+that text with the interview, and discards raw file bytes. Profile and JD text
+are independently bounded before prompt construction. The profile is evidence,
+not a permission to invent: an answer may adapt a project/experience example
+only when the exact supporting fact is present. A JD prioritizes terminology
+and gaps; it cannot be presented as candidate experience. Both are treated as
+untrusted data, so instructions inside uploaded documents are ignored.
 
 Recommended recent history:
 5-10 messages.

@@ -104,14 +104,56 @@ Response:
 }
 ```
 
-The API discards raw audio after the provider call. On a successful final
-transcription it adds an interviewer message, publishes `question.transcribed`,
-and invokes the Interview Intelligence Layer once for that `questionId`.
+`understoodText` is optional and appears only when a controlled technical-term
+interpretation differs from the original `text`; `text` always remains the
+provider transcript. The API discards raw audio after the provider call. On a
+successful final transcription it adds an interviewer message, publishes
+`question.transcribed`, and invokes the Interview Intelligence Layer once for
+that `questionId`.
 
 POST `/interviews/:id/questions/:questionId/answer/retry`
 
 Retries only a failed answer. It retains the same assistant `messageId` and
 streams the retry over the existing SSE connection.
+
+## Candidate profile and job description
+
+GET `/interviews/:id/context`
+
+Returns metadata only, never the stored CV/JD text:
+
+```json
+[
+  {
+    "kind": "profile",
+    "sourceFilename": "candidate-cv.pdf",
+    "characterCount": 4210,
+    "updatedAt": "ISO_DATE"
+  }
+]
+```
+
+POST `/interviews/:id/context/profile`
+
+POST `/interviews/:id/context/job-description`
+
+DELETE `/interviews/:id/context/profile`
+
+DELETE `/interviews/:id/context/job-description`
+
+Both endpoints require the per-interview bearer token and accept
+`multipart/form-data` with one `document` field. Supported types are
+`application/pdf`, `text/plain`, and `text/markdown`; the default maximum size
+is 2 MiB. The backend extracts and normalizes readable text, persists that text
+per interview, and discards the raw file bytes. It does not call an AI provider
+while uploading. A later answer receives bounded profile/JD context only.
+`DELETE` removes the normalized stored text for that context and returns
+`{ "removed": true }`; it is safe to call again and then returns `false`.
+
+Document errors use the standard error shape with one of
+`CANDIDATE_DOCUMENT_REQUIRED`, `CANDIDATE_DOCUMENT_EMPTY`,
+`CANDIDATE_DOCUMENT_TYPE_UNSUPPORTED`, `CANDIDATE_DOCUMENT_TOO_LARGE`,
+`CANDIDATE_DOCUMENT_UNREADABLE`, or `CANDIDATE_CONTEXT_KIND_INVALID`.
 
 ## SSE
 
@@ -149,7 +191,7 @@ Example:
 
 ```text
 event: question.transcribed
-data: {"messageId":"q1","questionId":"q1","text":"What is Kubernetes HPA?","segmentId":"uuid"}
+data: {"messageId":"q1","questionId":"q1","text":"Zen tin la gi?","understoodText":"Jenkins la gi?","segmentId":"uuid"}
 
 event: answer.started
 data: {"messageId":"a1","questionId":"q1"}

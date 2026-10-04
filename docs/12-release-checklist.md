@@ -1,6 +1,6 @@
 # Release Checklist
 
-Phase 9 supplies automated evidence for request validation, health/readiness,
+Phases 9 and 10 supply automated evidence for request validation, health/readiness,
 database migrations and restart persistence, interview bearer enforcement,
 protected metrics, Redis rate counters, provider timeout/retry configuration,
 structured logs, non-retention of raw audio, lint, tests, builds, and production
@@ -36,6 +36,9 @@ review, real-provider quality, or live SLOs for a deployment.
 - [ ] retry policy configured
 - [ ] structured logs enabled
 - [ ] raw audio not retained by default
+- [ ] pgvector migration applied when RAG is enabled
+- [ ] knowledge index run after the approved knowledge revision
+- [ ] candidate profile/JD retention reviewed for the local user
 
 ## AI
 
@@ -46,6 +49,10 @@ review, real-provider quality, or live SLOs for a deployment.
 - [ ] answer length bounded
 - [ ] fallback for empty/bad output
 - [ ] test-double and real-provider tests pass
+- [ ] RAG relevance threshold reviewed; low-confidence retrieval falls back
+- [ ] embedding credentials remain backend-only
+- [ ] profile facts are used only as verified evidence; missing experience uses
+  an adaptable answer
 
 ## Performance
 
@@ -60,3 +67,5 @@ review, real-provider quality, or live SLOs for a deployment.
 - [ ] audio retention behavior documented
 - [ ] user can stop capture immediately
 - [ ] history deletion path defined
+- [ ] CV/JD raw files discarded after extraction and profile/JD text deletion
+  path defined

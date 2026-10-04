@@ -42,6 +42,9 @@ empty meter means Chrome is delivering no tab audio; re-open the picker, select
 the interview tab, and enable **Share tab audio** before diagnosing STT. The
 speech threshold adapts to the tab's observed noise floor while retaining a
 small minimum threshold so quiet remote speech can still start an utterance.
+Only samples that are below the current speech threshold update that noise
+floor. This prevents a quiet interviewer’s first words from being learned as
+background noise before the minimum-speech window is reached.
 
 ## Segment rules
 
@@ -88,10 +91,15 @@ successful result becomes an interviewer transcript and publishes
 `question.transcribed`.
 
 Before the provider call, backend orchestration attaches a V1 DevOps STT
-vocabulary prompt in the selected language. This improves transcription of
-English technical terms embedded in Vietnamese questions, such as `Docker`,
-`Kubernetes`, `Terraform`, and `Argo CD`. It is backend-owned context only;
-the extension cannot set it and no raw audio is retained after the request.
+vocabulary prompt in the selected language. With the quality-first
+`gpt-transcribe` model it also sends the same controlled vocabulary as provider
+keyword guidance. This improves transcription of English technical terms in
+either interview language, such as `Docker`, `Kubernetes`, `Terraform`,
+`Jenkins`, and `Argo CD`; it is guidance, not a replacement for audible speech.
+It is backend-owned context only; the extension cannot set it and no raw audio
+is retained after the request. The chat always shows the provider's original
+transcript. If a narrowly scoped DevOps spelling correction is used for answer
+orchestration, it is displayed separately as the interpretation used to answer.
 
 The backend independently strips MIME parameters before applying its allowlist.
 Unsupported base types remain rejected. Captured tab audio is also routed back

@@ -33,6 +33,15 @@ export interface CompleteAiResponseInput {
   speechEndToFirstAnswerMs?: number;
 }
 
+export type CandidateContextKind = 'profile' | 'job_description';
+
+export interface CandidateContextRecord {
+  kind: CandidateContextKind;
+  sourceFilename: string;
+  extractedText: string;
+  updatedAt: string;
+}
+
 export abstract class InterviewRepository {
   abstract createInterview(interview: Interview, accessTokenHash: string): Promise<void>;
   abstract hasAccess(interviewId: string, accessTokenHash: string): Promise<boolean>;
@@ -46,4 +55,7 @@ export abstract class InterviewRepository {
   abstract findAnswerContext(messageId: string): Promise<ConversationMessage[] | undefined>;
   abstract startAiResponse(input: StartAiResponseInput): Promise<void>;
   abstract completeAiResponse(input: CompleteAiResponseInput): Promise<void>;
+  abstract upsertCandidateContext(interviewId: string, context: Omit<CandidateContextRecord, 'updatedAt'>): Promise<CandidateContextRecord>;
+  abstract listCandidateContexts(interviewId: string): Promise<CandidateContextRecord[]>;
+  abstract deleteCandidateContext(interviewId: string, kind: CandidateContextKind): Promise<boolean>;
 }

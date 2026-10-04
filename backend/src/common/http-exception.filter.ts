@@ -13,10 +13,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const requestId = request.header('x-request-id') ?? randomUUID();
     if (exception instanceof MulterError && exception.code === 'LIMIT_FILE_SIZE') {
-      this.logFailure(request, requestId, HttpStatus.PAYLOAD_TOO_LARGE, 'AUDIO_FILE_TOO_LARGE', exception);
+      const candidateDocument = request.path.includes('/context/');
+      const code = candidateDocument ? 'CANDIDATE_DOCUMENT_TOO_LARGE' : 'AUDIO_FILE_TOO_LARGE';
+      const message = candidateDocument ? 'Document exceeds the maximum size' : 'Audio file exceeds the maximum size';
+      this.logFailure(request, requestId, HttpStatus.PAYLOAD_TOO_LARGE, code, exception);
       response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
-        code: 'AUDIO_FILE_TOO_LARGE',
-        message: 'Audio file exceeds the maximum size',
+        code,
+        message,
         retryable: false,
         requestId
       });

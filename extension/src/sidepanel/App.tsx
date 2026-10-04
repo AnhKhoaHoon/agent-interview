@@ -3,7 +3,7 @@ import { CaptureDiagnostics, CaptureInterruption, CaptureStatus, TabAudioCapture
 import { VadPipeline, type FinalizedAudioSegment } from '../audio/vad-pipeline';
 import type { VadUiState } from '../audio/utterance-segmenter';
 import { ApiClientError } from '../api/client';
-import { askQuestion, createInterview, endInterview, eventStreamUrl, retryAnswer as requestAnswerRetry, uploadTranscription } from '../api/interview.api';
+import { askQuestion, CandidateContextKind, CandidateContextSummary, createInterview, deleteCandidateContext, endInterview, eventStreamUrl, listCandidateContexts, retryAnswer as requestAnswerRetry, uploadCandidateContext, uploadTranscription } from '../api/interview.api';
 import { connectInterviewEvents, type SseConnection } from '../realtime/sse-client';
 import { initialPanelState, interviewReducer } from '../state/interview.reducer';
 import type { InterviewEvent } from '../types/events';
@@ -14,6 +14,7 @@ import { DevCaptureDiagnostics } from './components/DevCaptureDiagnostics';
 import { DevQuestionForm } from './components/DevQuestionForm';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Header } from './components/Header';
+import { CandidateContextControls } from './components/CandidateContextControls';
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
@@ -53,6 +54,8 @@ function toEpochMs(performanceTimestampMs: number): number {
 export function App(): JSX.Element {
   const [state, dispatch] = useReducer(interviewReducer, initialPanelState);
   const [session, setSession] = useState<InterviewSession>();
+  const [candidateContexts, setCandidateContexts] = useState<CandidateContextSummary[]>([]);
+  const [uploadingCandidateContext, setUploadingCandidateContext] = useState<CandidateContextKind>();
   const sessionRef = useRef<InterviewSession>();
   const sourceRef = useRef<SseConnection>();
   const activeAnswerIdsRef = useRef(new Set<string>());
@@ -115,7 +118,7 @@ export function App(): JSX.Element {
       dispatch({
         type: 'transcribed',
         temporaryId,
-        message: { id: transcript.messageId, role: 'interviewer', content: transcript.text }
+        message: { id: transcript.messageId, role: 'interviewer', content: transcript.text, ...(transcript.understoodText ? { understoodText: transcript.understoodText } : {}) }
       });
     } catch (error) {
       const retryable = error instanceof ApiClientError ? error.response.retryable : true;
@@ -162,11 +165,12 @@ export function App(): JSX.Element {
       const messageId = stringField(data, 'messageId');
       const questionId = stringField(data, 'questionId') ?? messageId;
       const text = stringField(data, 'text');
+      const understoodText = stringField(data, 'understoodText');
       const segmentId = stringField(data, 'segmentId');
       const speechEndedAtMs = numberField(data, 'speechEndedAtMs');
       if (questionId && speechEndedAtMs) speechEndedAtByQuestionIdRef.current.set(questionId, speechEndedAtMs);
       if (messageId && text) {
-        const message = { id: messageId, role: 'interviewer' as const, content: text };
+        const message = { id: messageId, role: 'interviewer' as const, content: text, ...(understoodText ? { understoodText } : {}) };
         if (segmentId && pendingSegmentsRef.current.has(segmentId)) dispatch({ type: 'transcribed', temporaryId: segmentId, message });
         else dispatch({ type: 'add-question', message });
       }
@@ -243,11 +247,44 @@ export function App(): JSX.Element {
       const createdSession = await createInterview();
       sessionRef.current = createdSession;
       setSession(createdSession);
+      setCandidateContexts([]);
       connect(createdSession.id, createdSession.accessToken);
+      void listCandidateContexts(createdSession.id, createdSession.accessToken)
+        .then(setCandidateContexts)
+        .catch((error: unknown) => dispatch({ type: 'error', message: `Profile context could not load: ${errorMessage(error)}` }));
     } catch (error) {
       dispatch({ type: 'error', message: errorMessage(error) });
     }
   }, [connect]);
+
+  const uploadContext = useCallback(async (kind: CandidateContextKind, document: File) => {
+    const activeSession = sessionRef.current;
+    if (!activeSession || uploadingCandidateContext) return;
+    setUploadingCandidateContext(kind);
+    try {
+      const saved = await uploadCandidateContext(activeSession.id, activeSession.accessToken, kind, document);
+      setCandidateContexts((current) => [...current.filter((context) => context.kind !== saved.kind), saved]);
+    } catch (error) {
+      dispatch({ type: 'error', message: `Profile upload failed: ${errorMessage(error)}` });
+    } finally {
+      setUploadingCandidateContext(undefined);
+    }
+  }, [uploadingCandidateContext]);
+
+  const removeContext = useCallback(async (kind: CandidateContextKind) => {
+    const activeSession = sessionRef.current;
+    if (!activeSession || uploadingCandidateContext) return;
+    setUploadingCandidateContext(kind);
+    try {
+      await deleteCandidateContext(activeSession.id, activeSession.accessToken, kind);
+      const persistedKind = kind === 'profile' ? 'profile' : 'job_description';
+      setCandidateContexts((current) => current.filter((context) => context.kind !== persistedKind));
+    } catch (error) {
+      dispatch({ type: 'error', message: `Profile removal failed: ${errorMessage(error)}` });
+    } finally {
+      setUploadingCandidateContext(undefined);
+    }
+  }, [uploadingCandidateContext]);
 
   const stopSession = useCallback(async () => {
     const interviewId = session?.id;
@@ -264,6 +301,8 @@ export function App(): JSX.Element {
     setAudioLevel(0);
     setSpeechThreshold(0);
     setSession(undefined);
+    setCandidateContexts([]);
+    setUploadingCandidateContext(undefined);
     sessionRef.current = undefined;
     dispatch({ type: 'reset' });
     if (!interviewId) return;
@@ -390,6 +429,13 @@ export function App(): JSX.Element {
         )}
       />
       <ErrorBanner message={state.error} />
+      <CandidateContextControls
+        disabled={!session}
+        contexts={candidateContexts}
+        uploadingKind={uploadingCandidateContext}
+        onUpload={(kind, document) => void uploadContext(kind, document)}
+        onRemove={(kind) => void removeContext(kind)}
+      />
       <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} />
       {import.meta.env.DEV && (
         <details className="developer-tools">

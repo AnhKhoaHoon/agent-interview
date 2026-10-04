@@ -27,6 +27,7 @@ extension/
         AudioSource.tsx
         ChatWindow.tsx
         ChatBubble.tsx
+        CandidateContextControls.tsx
         StatusBar.tsx
         ErrorBanner.tsx
         DevPanel.tsx
@@ -182,6 +183,11 @@ The extension must:
   AI-answer preview bubbles. They explain the conversation layout without
   creating a fake message or calling the backend. Real bubbles show whether a
   question is transcribing or an answer is streaming.
+- Phase 11 adds a collapsed **Profile context** panel. After starting a session,
+  the user may upload a text-based PDF, TXT, or Markdown CV and optional JD.
+  It shows only filename/status and does not display document contents in the
+  Side Panel. The browser sends the selected file directly to the authenticated
+  backend; it never receives an AI provider key.
 
 ## Chat UI
 

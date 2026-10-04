@@ -69,9 +69,10 @@ candidate-ready DevOps answers without enabling RAG, changing the extension
 API, or adding another role.
 
 Prompt version `devops-interview-answer-v2` adds a mode-specific
-theory-to-practice delivery flow and rejects purely theoretical technical
-answers that contain no operational detail. Deterministic evaluation fixtures
-cover the major interview question types without adding a new roadmap phase.
+theory-to-practice delivery flow and flags purely theoretical technical answers
+that contain no operational detail. A quality warning must not hide an otherwise
+safe streamed answer from the candidate. Deterministic evaluation fixtures cover
+the major interview question types without adding a new roadmap phase.
 
 ## Phase 7 - Conversation context
 - last 5-10 messages
@@ -139,6 +140,14 @@ knowledge falls back to the LLM without claiming a source.
 - JD parser
 - context injection
 - no experience fabrication
+
+Phase 11 is implemented as authenticated, per-interview context. The extension
+uploads a PDF, TXT, or Markdown CV and optional JD after a session starts. The
+backend stores bounded normalized text only, discards raw file bytes, and
+injects profile/JD context independently into later prompts. The profile may
+support an experience example only when it contains the relevant fact; the JD
+prioritizes role requirements but cannot create an experience claim. Each
+context may be replaced or removed from the authenticated Side Panel.
 
 ## Phase 12 - Feedback system
 - good/bad

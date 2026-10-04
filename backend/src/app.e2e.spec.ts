@@ -61,6 +61,8 @@ describe('HTTP API integration', () => {
       expect.objectContaining({
         '/api/v1/health/live': expect.any(Object),
         '/api/v1/interviews': expect.any(Object),
+        '/api/v1/interviews/{id}/context': expect.any(Object),
+        '/api/v1/interviews/{id}/context/{kind}': expect.any(Object),
         '/api/v1/interviews/{id}/transcriptions': expect.any(Object),
         '/api/v1/interviews/{id}/events': expect.any(Object)
       })
@@ -89,6 +91,37 @@ describe('HTTP API integration', () => {
       expect.objectContaining({ id: transcription.body.questionId, role: 'interviewer', content: 'What is Kubernetes HPA?', status: 'completed' }),
       expect.objectContaining({ role: 'assistant', questionId: transcription.body.questionId, status: 'completed' })
     ]);
+  });
+
+  it('accepts a per-interview CV and job description without returning their content', async () => {
+    const interview = await request(app.getHttpServer()).post('/api/v1/interviews').send({ role: 'devops' }).expect(201);
+    const upload = (kind: string, filename: string, text: string) => request(app.getHttpServer())
+      .post(`/api/v1/interviews/${interview.body.id}/context/${kind}`)
+      .set('Authorization', `Bearer ${interview.body.accessToken}`)
+      .attach('document', Buffer.from(text), { filename, contentType: 'text/plain' });
+
+    const profile = await upload('profile', 'cv.txt', 'Kubernetes and Terraform experience').expect(201);
+    expect(profile.body).toEqual(expect.objectContaining({ kind: 'profile', sourceFilename: 'cv.txt' }));
+    const jobDescription = await upload('job-description', 'jd.txt', 'Kubernetes and AWS required').expect(201);
+    expect(jobDescription.body).toEqual(expect.objectContaining({ kind: 'job_description', sourceFilename: 'jd.txt' }));
+    const contexts = await request(app.getHttpServer())
+      .get(`/api/v1/interviews/${interview.body.id}/context`)
+      .set('Authorization', `Bearer ${interview.body.accessToken}`)
+      .expect(200);
+    expect(contexts.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'profile', sourceFilename: 'cv.txt', characterCount: expect.any(Number) }),
+      expect.objectContaining({ kind: 'job_description', sourceFilename: 'jd.txt', characterCount: expect.any(Number) })
+    ]));
+    expect(JSON.stringify(contexts.body)).not.toContain('Kubernetes and Terraform experience');
+    await request(app.getHttpServer())
+      .delete(`/api/v1/interviews/${interview.body.id}/context/profile`)
+      .set('Authorization', `Bearer ${interview.body.accessToken}`)
+      .expect(200, { removed: true });
+    const afterRemoval = await request(app.getHttpServer())
+      .get(`/api/v1/interviews/${interview.body.id}/context`)
+      .set('Authorization', `Bearer ${interview.body.accessToken}`)
+      .expect(200);
+    expect(afterRemoval.body).toEqual([expect.objectContaining({ kind: 'job_description' })]);
   });
 
   it('deduplicates a repeated finalized segment so it cannot invoke the AI twice', async () => {

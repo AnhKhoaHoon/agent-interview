@@ -4,8 +4,10 @@ Curated V1 material for DevOps interview answers. Each topic is written as a
 compact knowledge card: core concepts, safe operational checks, trade-offs, and
 common interview pitfalls. Content supports the DevOps role only.
 
-This directory is a source for future Phase 10 retrieval work. It is not
-currently indexed, uploaded, or automatically sent to an LLM.
+Phase 10 indexes these cards explicitly into pgvector with the backend-only
+knowledge-index command. Only topic-matched, sufficiently relevant chunks are
+included in an answer prompt; missing or low-confidence retrieval falls back to
+the LLM's general knowledge without claiming a source.
 
 ## Interview answer standard
 
@@ -42,6 +44,9 @@ permissions. Those actions can hide evidence or increase impact.
   evidence that distinguishes them, and how recovery will be verified.
 - Commands in these cards are diagnostic examples. Confirm environment,
   identity, namespace/account, and blast radius before a mutating command.
+- Automation should remove repeatable, low-risk manual work while retaining
+  review, least privilege, and explicit approval for irreversible or high-blast
+  radius changes. Automating an unsafe action only makes failure faster.
 
 ## Real-scenario answer template
 
@@ -57,9 +62,11 @@ permissions. Those actions can hide evidence or increase impact.
 
 - [Linux](devops/linux/README.md)
 - [Networking](devops/networking/README.md)
+- [Git](devops/git/README.md)
 - [Docker](devops/docker/README.md)
 - [Kubernetes](devops/kubernetes/README.md)
 - [AWS](devops/aws/README.md)
+- [Infrastructure as Code](devops/iac/README.md)
 - [Terraform](devops/terraform/README.md)
 - [CI/CD](devops/cicd/README.md)
 - [Ansible](devops/ansible/README.md)

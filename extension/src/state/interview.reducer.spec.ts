@@ -33,6 +33,19 @@ describe('interviewReducer', () => {
     expect(state.messages).toEqual([{ id: 'q1', role: 'interviewer', content: 'What is Kubernetes HPA?' }]);
   });
 
+  it('preserves the original transcript while keeping a separate interpretation for the answer', () => {
+    let state = interviewReducer(initialPanelState, { type: 'transcribing', temporaryId: 'segment-1' });
+    state = interviewReducer(state, {
+      type: 'transcribed',
+      temporaryId: 'segment-1',
+      message: { id: 'q1', role: 'interviewer', content: 'Zen tin là gì?', understoodText: 'Jenkins là gì?' }
+    });
+
+    expect(state.messages).toEqual([{
+      id: 'q1', role: 'interviewer', content: 'Zen tin là gì?', understoodText: 'Jenkins là gì?'
+    }]);
+  });
+
   it('keeps concurrent streamed answers correlated to their questions and returns connected only after both complete', () => {
     let state = interviewReducer(initialPanelState, {
       type: 'add-question',

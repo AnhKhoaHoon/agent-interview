@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { InterviewLanguage } from '../ai/contracts';
 import { InterviewService } from '../interview/interview.service';
 import { InterviewRepository } from '../persistence/interview.repository';
-import { devopsTranscriptionPrompt } from '../roles/devops/devops-transcription-prompt';
+import { DEVOPS_TRANSCRIPTION_KEYWORDS, devopsTranscriptionPrompt } from '../roles/devops/devops-transcription-prompt';
 import { SttProviderFactory } from './providers/stt-provider.factory';
 import { normalizeAudioContentType, SUPPORTED_AUDIO_TYPES, transcriptionConfiguration } from './transcription.config';
 
@@ -18,6 +18,7 @@ export interface TranscriptionResponse {
   messageId: string;
   questionId: string;
   text: string;
+  understoodText?: string;
   language: string;
   durationMs: number;
 }
@@ -109,7 +110,8 @@ export class TranscriptionService {
         filename: audio.originalname || 'utterance.webm',
         ...(metadata.language ? {
           language: metadata.language,
-          prompt: devopsTranscriptionPrompt(metadata.language)
+          prompt: devopsTranscriptionPrompt(metadata.language),
+          keywords: DEVOPS_TRANSCRIPTION_KEYWORDS
         } : {})
       });
       if (!result.text.trim()) throw new ServiceUnavailableException({ code: 'STT_EMPTY_RESULT', message: 'Speech provider returned no transcript', retryable: true });
@@ -138,7 +140,11 @@ export class TranscriptionService {
         transcriptCharacterCount: result.text.trim().length,
         sttLatencyMs
       }));
-      return { messageId: message.id, questionId: message.id, text: message.content, language: result.language, durationMs };
+      return {
+        messageId: message.id, questionId: message.id, text: message.content,
+        ...(message.understoodText ? { understoodText: message.understoodText } : {}),
+        language: result.language, durationMs
+      };
     } catch (error) {
       this.logger.error(JSON.stringify({
         event: 'stt.failed',

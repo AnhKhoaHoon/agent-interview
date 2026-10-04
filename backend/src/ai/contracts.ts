@@ -69,6 +69,8 @@ export interface PromptInput {
   plan: InterviewAnswerPlan;
   answerLanguage?: InterviewLanguage;
   knowledge?: RetrievedKnowledge[];
+  candidateProfile?: string;
+  jobDescription?: string;
   followUp?: {
     referenceQuestion: string;
   };

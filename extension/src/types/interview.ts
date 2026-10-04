@@ -6,6 +6,8 @@ export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
+  /** Backend interpretation of a recognized DevOps term; content remains the raw STT transcript. */
+  understoodText?: string;
   questionId?: string;
   keywords?: string[];
   status?: 'transcribing' | 'streaming' | 'failed';

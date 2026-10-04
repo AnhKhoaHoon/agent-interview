@@ -10,6 +10,33 @@
 - EC2 runs compute, ALB distributes HTTP(S) traffic, Auto Scaling adjusts
   capacity, S3 stores objects, RDS provides managed relational databases, and
   CloudWatch supplies metrics/logs/alarms.
+- ECR is a container image registry. Treat a production image digest as the
+  deployable identity; use scan results and lifecycle rules deliberately rather
+  than relying on mutable tags or accumulating unbounded image storage.
+- ECS task roles and EKS workload identity (for example, IAM roles for service
+  accounts) scope AWS permissions to an application workload. They are distinct
+  from the permissions the platform needs to launch a task or operate a cluster.
+
+## AWS services commonly expected in a DevOps interview
+
+| Need | Typical AWS service or control | Practical decision |
+| --- | --- | --- |
+| Identity and automation | IAM roles, STS, IAM Identity Center, OIDC federation | Prefer short-lived role credentials and least-privilege conditions over embedding access keys in CI or workloads. |
+| Network boundary | VPC, public/private subnets, route tables, security groups, NACLs, NAT, VPC endpoints | Derive exposure from routes and security controls; use private workloads and only the required ingress/egress path. |
+| Object/data protection | S3, versioning, lifecycle rules, KMS, replication/Object Lock where required | Versioning helps recover from overwrite/delete; lifecycle controls retention cost and must include noncurrent versions where needed. |
+| Container delivery | ECR, ECS/Fargate or EKS, ALB, Auto Scaling | Build once, scan and promote an immutable digest; give each task/Pod only its required AWS permissions. |
+| Managed data | RDS/Aurora, backups, Multi-AZ, read replicas | Match RTO/RPO and read/write pattern; Multi-AZ is availability, not automatically read scaling. |
+| Observability and audit | CloudWatch, CloudTrail, VPC Flow Logs | Alert on a user-impacting signal and retain sufficient audit evidence to investigate access or deployment changes. |
+
+## Automation answer pattern
+
+For an AWS automation answer, distinguish three identities: the CI identity
+that proposes infrastructure/deployment changes, the platform identity that
+operates a service, and the application workload identity. Use short-lived,
+scoped roles for each; log the change; make the operation idempotent where
+possible; and verify both the AWS control-plane result and the user-facing SLI.
+Do not put a long-lived AWS access key in Git, a container image, or a browser
+extension.
 
 ## Architecture answer pattern
 
@@ -82,6 +109,42 @@
 - **Verify:** retry as the same principal and confirm intended access succeeds
   while a negative test remains denied.
 
+### An EKS workload receives AccessDenied from S3
+
+- **Inspect:** identify the Pod, Kubernetes service account, assumed AWS role,
+  IAM policy/resource/condition, role trust relationship, and the exact denied
+  action from application and CloudTrail evidence. Confirm the Pod is not
+  falling back to an overly broad node credential.
+- **Act:** correct the workload identity mapping or add the smallest missing
+  S3 action/resource condition to the workload role. Do not solve it by giving
+  the node role or cluster role broad S3 access.
+- **Verify:** retry from the same workload, confirm the intended request works,
+  a disallowed object/action remains denied, and audit logs show the expected
+  role session.
+
+### A new container version fails to start in ECS or EKS
+
+- **Inspect:** compare the requested image digest with the registry manifest,
+  repository permissions, image scan policy, task/Pod events, runtime logs,
+  health checks, and any private-network path to ECR endpoints.
+- **Act:** stop promotion if the digest or image is wrong; fix the specific
+  registry/workload permission, image, or network path. Promote a known-good
+  digest instead of retagging an unknown image as a rollback.
+- **Verify:** confirm the expected digest is running, health checks and
+  application SLI are normal, and the pipeline's artifact-to-deployment record
+  matches the approved commit.
+
+### An S3 bucket costs grow after enabling versioning
+
+- **Inspect:** break down current/noncurrent versions, delete markers, object
+  age/size, storage class, access pattern, retention requirements, and any
+  legal hold or recovery objective before deleting data.
+- **Act:** define and preview lifecycle rules that fit the retention policy,
+  including the treatment of noncurrent versions. Keep versioning where recovery
+  is required; do not disable it merely to hide a cost symptom.
+- **Verify:** review lifecycle execution, recovered-object tests, storage cost
+  trend, and that required versions remain recoverable through the agreed window.
+
 ## Concise interview delivery
 
 “I start from availability, RTO/RPO, traffic, security, and cost requirements;
@@ -104,3 +167,9 @@ available.”
 - [AWS IAM security best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
 - [Amazon VPC route tables](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
 - [Amazon RDS metrics reference](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-metrics.html)
+- [IAM security best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html)
+- [S3 data protection](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html)
+- [Amazon ECR features](https://docs.aws.amazon.com/AmazonECR/latest/userguide/)
+- [ECS task IAM role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html)
+- [EKS IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)

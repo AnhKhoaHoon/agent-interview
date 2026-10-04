@@ -55,6 +55,7 @@ Audio
 -> Transcript
 -> Question Classifier
 -> Context Builder
+-> Candidate Profile + Job Description context (when attached)
 -> Knowledge Retrieval (when relevant)
 -> DevOps Prompt Builder
 -> LLM Stream
@@ -113,7 +114,7 @@ Use for:
 - history
 - manual dev questions
 - final audio segment upload
-- profile/JD upload later
+- per-interview profile/JD upload and context metadata
 
 ### SSE
 

@@ -4,6 +4,7 @@ import { ConversationMessage } from '../ai/contracts';
 import { Interview, InterviewMessage, InterviewStatus, MessageRole, MessageStatus } from '../interview/interview.types';
 import { DatabaseService } from './database.service';
 import {
+  CandidateContextRecord,
   CompleteAiResponseInput,
   InterviewRepository,
   PersistedTranscription,
@@ -29,6 +30,13 @@ interface MessageRow {
   question_id: string | null;
   speech_ended_at_ms: string | null;
   created_at: Date;
+}
+
+interface CandidateContextRow {
+  kind: 'profile' | 'job_description';
+  source_filename: string;
+  extracted_text: string;
+  updated_at: Date;
 }
 
 @Injectable()
@@ -180,6 +188,39 @@ export class PostgresInterviewRepository extends InterviewRepository {
     );
   }
 
+  async upsertCandidateContext(interviewId: string, context: Omit<CandidateContextRecord, 'updatedAt'>): Promise<CandidateContextRecord> {
+    const result = await this.database.query<CandidateContextRow>(
+      `INSERT INTO interview_candidate_contexts (interview_id, kind, source_filename, extracted_text)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (interview_id, kind) DO UPDATE SET
+         source_filename = EXCLUDED.source_filename,
+         extracted_text = EXCLUDED.extracted_text,
+         updated_at = NOW()
+       RETURNING kind, source_filename, extracted_text, updated_at`,
+      [interviewId, context.kind, context.sourceFilename, context.extractedText]
+    );
+    return this.toCandidateContext(result.rows[0]!);
+  }
+
+  async listCandidateContexts(interviewId: string): Promise<CandidateContextRecord[]> {
+    const result = await this.database.query<CandidateContextRow>(
+      `SELECT kind, source_filename, extracted_text, updated_at
+         FROM interview_candidate_contexts
+        WHERE interview_id = $1
+        ORDER BY kind ASC`,
+      [interviewId]
+    );
+    return result.rows.map((row) => this.toCandidateContext(row));
+  }
+
+  async deleteCandidateContext(interviewId: string, kind: CandidateContextRecord['kind']): Promise<boolean> {
+    const result = await this.database.query(
+      'DELETE FROM interview_candidate_contexts WHERE interview_id = $1 AND kind = $2',
+      [interviewId, kind]
+    );
+    return result.rowCount === 1;
+  }
+
   private async insertMessage(client: PoolClient, message: Omit<InterviewMessage, 'sequenceNo'>, sequenceNo: number): Promise<void> {
     await client.query(
       `INSERT INTO messages
@@ -211,6 +252,15 @@ export class PostgresInterviewRepository extends InterviewRepository {
       createdAt: row.created_at.toISOString(),
       ...(row.question_id ? { questionId: row.question_id } : {}),
       ...(row.speech_ended_at_ms ? { speechEndedAtMs: Number(row.speech_ended_at_ms) } : {})
+    };
+  }
+
+  private toCandidateContext(row: CandidateContextRow): CandidateContextRecord {
+    return {
+      kind: row.kind,
+      sourceFilename: row.source_filename,
+      extractedText: row.extracted_text,
+      updatedAt: row.updated_at.toISOString()
     };
   }
 }
