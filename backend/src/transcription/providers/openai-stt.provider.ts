@@ -34,13 +34,12 @@ export class OpenAiSttProvider implements SttProvider {
       const request = {
         file,
         model,
-        ...(language ? { language } : {}),
         ...(options.prompt ? { prompt: options.prompt } : {}),
-        // `keywords` and `languages` are supported by gpt-transcribe. Keep
-        // them provider-local so the generic STT contract stays reusable.
-        ...(usesKeywordGuidance(model) && options.keywords?.length
-          ? { keywords: options.keywords, languages: [language] }
-          : {})
+        // gpt-transcribe uses `languages` instead of the singular `language`.
+        // Sending both is rejected by OpenAI, so provider-specific fields stay
+        // together behind this adapter.
+        ...transcriptionLanguageFields(model, language),
+        ...(usesKeywordGuidance(model) && options.keywords?.length ? { keywords: options.keywords } : {})
       };
       const response = await client.audio.transcriptions.create(request as unknown as TranscriptionCreateParamsNonStreaming);
       const languageResponse = response as { languages?: Array<{ code?: string }> };
@@ -74,6 +73,11 @@ export class OpenAiSttProvider implements SttProvider {
 /** `keywords` is currently an opt-in request field for this OpenAI model only. */
 export function usesKeywordGuidance(model: string): boolean {
   return model === 'gpt-transcribe';
+}
+
+export function transcriptionLanguageFields(model: string, language?: 'vi' | 'en'): { language?: string; languages?: string[] } {
+  if (!language) return {};
+  return usesKeywordGuidance(model) ? { languages: [language] } : { language };
 }
 
 export function configuredSttLanguage(value = process.env.STT_LANGUAGE ?? 'vi'): 'vi' | 'en' {

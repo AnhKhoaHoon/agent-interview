@@ -412,30 +412,32 @@ export function App(): JSX.Element {
         onStart={() => void startSession()}
         onStop={() => void stopSession()}
         controls={(
-          <CaptureControls
-            status={captureStatus}
-            vadState={vadState}
-            error={captureError}
-            disabled={!session}
-            language={transcriptionLanguage}
-            onLanguageChange={changeTranscriptionLanguage}
-            audioLevel={audioLevel}
-            speechThreshold={speechThreshold}
-            onFinishQuestion={finishCurrentQuestion}
-            onStart={() => void startCapture('picker')}
-            onUseActiveTab={() => void startCapture()}
-            onStop={() => void stopCapture()}
-          />
+          <>
+            <CaptureControls
+              status={captureStatus}
+              vadState={vadState}
+              error={captureError}
+              disabled={!session}
+              language={transcriptionLanguage}
+              onLanguageChange={changeTranscriptionLanguage}
+              audioLevel={audioLevel}
+              speechThreshold={speechThreshold}
+              onFinishQuestion={finishCurrentQuestion}
+              onStart={() => void startCapture('picker')}
+              onUseActiveTab={() => void startCapture()}
+              onStop={() => void stopCapture()}
+            />
+            <CandidateContextControls
+              disabled={!session}
+              contexts={candidateContexts}
+              uploadingKind={uploadingCandidateContext}
+              onUpload={(kind, document) => void uploadContext(kind, document)}
+              onRemove={(kind) => void removeContext(kind)}
+            />
+          </>
         )}
       />
       <ErrorBanner message={state.error} />
-      <CandidateContextControls
-        disabled={!session}
-        contexts={candidateContexts}
-        uploadingKind={uploadingCandidateContext}
-        onUpload={(kind, document) => void uploadContext(kind, document)}
-        onRemove={(kind) => void removeContext(kind)}
-      />
       <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} />
       {import.meta.env.DEV && (
         <details className="developer-tools">

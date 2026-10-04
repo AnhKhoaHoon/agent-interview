@@ -5,13 +5,13 @@ type PlanTemplate = Omit<InterviewAnswerPlan, 'promptVersion' | 'responseMode'>;
 
 const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
   technical_definition: {
-    opening: 'State the definition directly in the first sentence.',
-    deliverySteps: ['explain the core principle or key distinction', 'state why it is used', 'give exactly one relevant practical example or caveat'],
-    requiredPoints: ['definition in scope', 'why it matters', 'one practical detail only'],
-    qualityChecks: ['direct answer', 'scope matched', 'no unrelated troubleshooting checklist'],
-    requiresOperationalDetail: true,
-    minWords: 40,
-    maxWords: 85
+    opening: 'State the definition directly in the first sentence, then stop after one essential distinction or relevance sentence.',
+    deliverySteps: ['define the named concept in plain spoken language', 'add only one essential distinction or relevance sentence when it clarifies the definition'],
+    requiredPoints: ['definition in scope', 'no facts outside the named concept'],
+    qualityChecks: ['direct answer', 'scope matched', 'no unsolicited workflow, example, or checklist'],
+    requiresOperationalDetail: false,
+    minWords: 18,
+    maxWords: 55
   },
   technical_comparison: {
     opening: 'State the key distinction before comparing options.',
@@ -19,8 +19,8 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['material trade-off', 'when to choose each option'],
     qualityChecks: ['clear distinction', 'decision guidance'],
     requiresOperationalDetail: true,
-    minWords: 60,
-    maxWords: 120
+    minWords: 40,
+    maxWords: 90
   },
   technical_troubleshooting: {
     opening: 'Lead with the safest first diagnostic check.',
@@ -55,8 +55,8 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     requiredPoints: ['what to inspect', 'what the result establishes', 'safe next action'],
     qualityChecks: ['no claim that a command was run', 'safe next step'],
     requiresOperationalDetail: true,
-    minWords: 50,
-    maxWords: 120
+    minWords: 35,
+    maxWords: 90
   },
   behavioral_experience: {
     opening: 'Use a verified STAR answer, or explicitly label an Adaptable answer.',
@@ -82,7 +82,7 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
 export class InterviewAnswerPlannerService {
   plan(classification: Classification): InterviewAnswerPlan {
     return {
-      promptVersion: 'devops-interview-answer-v2',
+      promptVersion: 'devops-interview-answer-v3',
       responseMode: classification.responseMode,
       ...PLAN_BY_MODE[classification.responseMode]
     };

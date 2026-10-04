@@ -96,6 +96,9 @@ vocabulary prompt in the selected language. With the quality-first
 keyword guidance. This improves transcription of English technical terms in
 either interview language, such as `Docker`, `Kubernetes`, `Terraform`,
 `Jenkins`, and `Argo CD`; it is guidance, not a replacement for audible speech.
+For this model the provider adapter sends only `languages: [vi|en]`, never the
+legacy singular `language` field, because OpenAI rejects a request containing
+both fields.
 It is backend-owned context only; the extension cannot set it and no raw audio
 is retained after the request. The chat always shows the provider's original
 transcript. If a narrowly scoped DevOps spelling correction is used for answer

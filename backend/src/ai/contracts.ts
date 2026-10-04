@@ -51,7 +51,7 @@ export interface InterviewQuestionAssessment {
 }
 
 export interface InterviewAnswerPlan {
-  promptVersion: 'devops-interview-answer-v2';
+  promptVersion: 'devops-interview-answer-v3';
   responseMode: ResponseMode;
   opening: string;
   deliverySteps: string[];

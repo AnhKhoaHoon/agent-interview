@@ -1,5 +1,5 @@
 import { devopsTranscriptionPrompt } from '../../roles/devops/devops-transcription-prompt';
-import { configuredSttLanguage, usesKeywordGuidance } from './openai-stt.provider';
+import { configuredSttLanguage, transcriptionLanguageFields, usesKeywordGuidance } from './openai-stt.provider';
 
 describe('configuredSttLanguage', () => {
   it('defaults to Vietnamese when no environment override exists', () => {
@@ -35,5 +35,15 @@ describe('usesKeywordGuidance', () => {
   it('only enables provider keyword guidance for the model that supports it', () => {
     expect(usesKeywordGuidance('gpt-transcribe')).toBe(true);
     expect(usesKeywordGuidance('gpt-4o-mini-transcribe')).toBe(false);
+  });
+});
+
+describe('transcriptionLanguageFields', () => {
+  it('uses only languages for gpt-transcribe, never language and languages together', () => {
+    expect(transcriptionLanguageFields('gpt-transcribe', 'en')).toEqual({ languages: ['en'] });
+  });
+
+  it('uses the singular language hint for standard transcription models', () => {
+    expect(transcriptionLanguageFields('gpt-4o-mini-transcribe', 'vi')).toEqual({ language: 'vi' });
   });
 });

@@ -26,14 +26,14 @@ describe('DevOps interview answer evaluation', () => {
   const provider = new DeterministicTestLlmProvider();
   const quality = new InterviewAnswerQualityService(new AnswerValidatorService());
 
-  it.each(cases)('produces a candidate-ready theory-to-practice answer for $classification.type', async ({ question, classification }) => {
+  it.each(cases)('produces a candidate-ready answer calibrated to $classification.type', async ({ question, classification }) => {
     const plan = planner.plan(classification);
     const prompt = promptBuilder.build({ question, classification, history: [], plan });
     const chunks: string[] = [];
     for await (const chunk of provider.stream(prompt)) chunks.push(chunk);
     const answer = chunks.join('');
 
-    expect(prompt.input).toContain('Theory-to-practice flow:');
+    expect(prompt.input).toContain('Answer flow:');
     expect(quality.evaluate(answer, classification, plan)).toEqual({ valid: true, reasons: [] });
     if (classification.responseMode === 'behavioral_experience') expect(answer).toContain('Adaptable answer:');
   });

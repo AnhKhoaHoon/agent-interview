@@ -46,14 +46,14 @@ V1 default:
 Default:
 - direct
 - practical
-- definition: 40-85 words, roughly 15-25 seconds spoken
+- definition: 18-55 words, roughly 8-15 seconds spoken
 - other technical modes: use the mode-specific word range and depth
 - candidate-ready: confident but accurate, using plain spoken English
 - state a recommendation before supporting detail
 - mention a trade-off or verification step where it improves the answer
 - do not use empty filler, excessive caveats, or textbook-style headings in the final answer
-- connect the core principle to a concrete operational example, then state how
-  to verify it or evaluate the trade-off
+- for applied questions, connect the core principle to a concrete operational
+  example, then state how to verify it or evaluate the trade-off
 
 ## Interview-answer rules
 
@@ -68,8 +68,8 @@ This calibration changes the depth of technical reasoning, not the truthfulness 
 ## Definition example structure
 
 1. What it is
-2. Why it is used
-3. exactly one real configuration, check, metric, or operational caveat
+2. one essential distinction or relevance sentence, if it clarifies the term
+3. stop and wait for a follow-up
 
 Do not append an unrelated deployment, observability, or troubleshooting
 checklist to a definition answer. For Docker, distinguish an image from a
@@ -93,10 +93,11 @@ introduce CI/CD, registries, Kubernetes, or deployment workflows.
 
 ## Theory-to-practice rule
 
-A technically correct definition alone is not interview-ready. Except for a
-clarifying question, each technical answer should demonstrate how the concept
-changes an operational decision. Prefer one concrete implementation detail and
-one verification signal over a long list of product features.
+A direct definition is interview-ready when it answers the exact question
+accurately and concisely. Do not add implementation detail or verification just
+to make it longer. Applied questions should demonstrate how the concept changes
+an operational decision; prefer one concrete implementation detail and one
+verification signal over a long list of product features.
 
 ## Experience questions
 

@@ -26,11 +26,11 @@ describe('PromptBuilderService', () => {
     expect(prompt.input).toContain('Answer language: match the current interviewer question exactly');
     expect(prompt.input).toContain('Previous question');
     expect(prompt.input).toContain('What is Terraform state?');
-    expect(prompt.input).toContain('Prompt version: devops-interview-answer-v2');
-    expect(prompt.input).toContain('Theory-to-practice flow:');
-    expect(prompt.input).toContain('state why it is used');
-    expect(prompt.input).toContain('one practical detail only');
-    expect(prompt.input).toContain('Word range: 40-85');
+    expect(prompt.input).toContain('Prompt version: devops-interview-answer-v3');
+    expect(prompt.input).toContain('Answer flow:');
+    expect(prompt.input).toContain('define the named concept in plain spoken language');
+    expect(prompt.input).toContain('no unsolicited workflow, example, or checklist');
+    expect(prompt.input).toContain('Word range: 18-55');
   });
 
   it('adds precise Docker terminology guidance without turning the answer into a checklist', () => {

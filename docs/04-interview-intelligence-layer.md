@@ -162,18 +162,18 @@ plan. It is provider-independent and has no access to provider credentials.
 Each plan defines:
 
 - an opening direction for the first sentence;
-- a mode-specific theory-to-practice delivery sequence;
+- a mode-specific answer delivery sequence;
 - required spoken-answer points;
 - quality checks appropriate to the mode; and
 - a maximum word count (120 words, or 30 for a clarification).
 
-The current plan is versioned as `devops-interview-answer-v2`. This allows a
+The current plan is versioned as `devops-interview-answer-v3`. This allows a
 future prompt revision to be evaluated against the same fixtures without
 changing classifier or provider code.
 
-### Theory-to-practice delivery
+### Calibrated answer delivery
 
-Technical answers must connect knowledge to real operation within the same
+Applied technical answers connect knowledge to real operation within the same
 spoken response:
 
 1. **Principle:** define the mechanism, distinction, failure domain, or design goal.
@@ -182,7 +182,10 @@ spoken response:
 3. **Verification:** close with how the candidate would interpret results,
    validate success, manage risk, or make the trade-off.
 
-The exact sequence varies by `responseMode`. For example, troubleshooting uses
+The exact sequence varies by `responseMode`. A direct definition is an explicit
+exception: it defines the named term and may add one essential distinction or
+relevance sentence, then stops. It must not be padded with a workflow, example,
+or verification step that was not requested. For applied answers, troubleshooting uses
 failure domains -> ordered checks -> remediation and verification, while a
 comparison uses model difference -> operational consequence -> choice under a
 specific constraint. Behavioral answers keep STAR and the verified-facts rule
@@ -193,8 +196,8 @@ instead of forcing a technical definition.
 Default rules:
 - answer as a prepared DevOps candidate would speak, not as a textbook or a chat assistant
 - lead with the direct answer; do not start with filler such as "Certainly" or repeat the question
-- 20-30 seconds spoken
-- 60-120 words
+- direct definitions: roughly 8-15 seconds, 18-55 words
+- applied technical answers: use their mode-specific range and depth
 - practical explanation
 - simple wording
 - trade-offs where useful
@@ -214,7 +217,8 @@ the earlier answer.
 
 ### Candidate-answer policy
 
-- Technical questions: state the concept or recommendation first, then add a concise practical detail, trade-off, or example.
+- Direct definition questions: state the concept first, then add at most one essential distinction or relevance sentence. Do not volunteer a workflow, practical example, or verification step.
+- Other technical questions: state the concept or recommendation first, then add the practical detail, trade-off, or example appropriate to that mode.
 - Scenario and architecture questions: explain the proposed approach, why it fits, key risks/trade-offs, and how it would be validated.
 - Command questions: give only safe, relevant commands and say briefly what each check establishes. Do not imply commands were run.
 - Behavioral and experience questions: use first-person claims only when they are present in the verified candidate profile. Without verified facts, do not invent a project, employer, incident, metric, ownership, or result. Give a clearly labelled adaptable answer structure instead.
@@ -225,7 +229,7 @@ the earlier answer.
 
 | responseMode | Required shape |
 | --- | --- |
-| `technical_definition` | what it is -> why it matters -> exactly one practical detail from the same concept; no unrelated tool, workflow, or checklist |
+| `technical_definition` | what it is -> one essential distinction or relevance sentence -> stop; no unsolicited workflow, example, verification, or checklist |
 | `technical_comparison` | key distinction -> trade-offs -> when to choose each |
 | `technical_troubleshooting` | likely causes -> ordered checks -> remediation and verification |
 | `technical_scenario` / `technical_architecture` | recommendation -> components/steps -> trade-offs -> validation |
