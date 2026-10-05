@@ -50,6 +50,9 @@ EMBEDDING_PROVIDER=openai
 # Để trống để dùng LLM_API_KEY, hoặc dùng key embedding riêng:
 EMBEDDING_API_KEY=
 EMBEDDING_MODEL=text-embedding-3-small
+RAG_MAX_CHUNKS=4
+RAG_MIN_SIMILARITY=0.72
+RAG_MIN_KEYWORD_COVERAGE=0.35
 ```
 
 Nếu chưa có embedding access, đặt `RAG_ENABLED=false`; STT và AI answer vẫn

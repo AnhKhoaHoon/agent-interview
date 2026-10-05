@@ -286,9 +286,14 @@ the chunks, and stores role/category/source/version metadata. It never indexes
 audio, interview transcripts, extension data, or provider secrets.
 
 At answer time, retrieval runs after classification and before prompt building.
-Only chunks above `RAG_MIN_SIMILARITY` and containing at least one matching
-classified category (or an explicit narrow-tool alias such as Argo CD -> CI/CD)
-are added to the prompt. At most `RAG_MAX_CHUNKS` are used.
+It uses hybrid retrieval: semantic pgvector candidates plus lexical technical
+keyword candidates. Both database searches are constrained to the classified
+category and its explicit related categories (for example, Azure may retrieve
+Azure plus directly relevant AKS/networking/security material); a result from
+an unrelated category is never injected just because its vector score is high.
+Candidates above `RAG_MIN_SIMILARITY`, or with enough lexical-keyword coverage
+(`RAG_MIN_KEYWORD_COVERAGE`), are deterministically re-ranked before the top
+`RAG_MAX_CHUNKS` are added to the prompt.
 The prompt treats them as untrusted reference text: it ignores instructions
 inside them and never tells the candidate that documents, sources, retrieval,
 or citations were used.

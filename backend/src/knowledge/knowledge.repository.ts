@@ -4,6 +4,7 @@ import { DatabaseService } from '../persistence/database.service';
 export interface KnowledgeDocumentInput { id: string; category: string; sourcePath: string; sourceHash: string; version: string; content: string; }
 export interface KnowledgeChunkInput { id: string; chunkIndex: number; text: string; embedding: number[]; metadata: Record<string, string | number>; }
 export interface RetrievedKnowledgeChunk { sourcePath: string; category: string; text: string; score: number; }
+export interface KeywordKnowledgeChunk extends RetrievedKnowledgeChunk { keywordScore: number; }
 
 function vector(values: number[]): string { return `[${values.join(',')}]`; }
 
@@ -34,14 +35,39 @@ export class KnowledgeRepository {
     });
   }
 
-  async search(queryEmbedding: number[], maxChunks: number): Promise<RetrievedKnowledgeChunk[]> {
+  async semanticSearch(queryEmbedding: number[], categories: string[], maxChunks: number): Promise<RetrievedKnowledgeChunk[]> {
+    if (!categories.length) return [];
     const result = await this.database.query<{ source_path: string; category: string; chunk_text: string; score: string }>(
       `SELECT d.source_path, d.category, c.chunk_text, (1 - (c.embedding <=> $1::vector)) AS score
          FROM knowledge_chunks c JOIN knowledge_documents d ON d.id = c.document_id
-        WHERE d.role = 'devops'
-        ORDER BY c.embedding <=> $1::vector ASC LIMIT $2`,
-      [vector(queryEmbedding), maxChunks]
+        WHERE d.role = 'devops' AND d.category = ANY($2::text[])
+        ORDER BY c.embedding <=> $1::vector ASC LIMIT $3`,
+      [vector(queryEmbedding), categories, maxChunks]
     );
     return result.rows.map((row) => ({ sourcePath: row.source_path, category: row.category, text: row.chunk_text, score: Number(row.score) }));
+  }
+
+  async keywordSearch(terms: string[], categories: string[], maxChunks: number): Promise<KeywordKnowledgeChunk[]> {
+    if (!terms.length || !categories.length) return [];
+    const result = await this.database.query<{ source_path: string; category: string; chunk_text: string; keyword_score: string }>(
+      `WITH terms AS (SELECT DISTINCT unnest($1::text[]) AS term)
+       SELECT d.source_path, d.category, c.chunk_text,
+              COUNT(DISTINCT terms.term)::float / $3::float AS keyword_score
+         FROM knowledge_chunks c
+         JOIN knowledge_documents d ON d.id = c.document_id
+         JOIN terms ON to_tsvector('simple', c.chunk_text) @@ plainto_tsquery('simple', terms.term)
+        WHERE d.role = 'devops' AND d.category = ANY($2::text[])
+        GROUP BY c.id, d.source_path, d.category, c.chunk_text
+        ORDER BY keyword_score DESC, length(c.chunk_text) ASC
+        LIMIT $4`,
+      [terms, categories, terms.length, maxChunks]
+    );
+    return result.rows.map((row) => ({
+      sourcePath: row.source_path,
+      category: row.category,
+      text: row.chunk_text,
+      score: Number(row.keyword_score),
+      keywordScore: Number(row.keyword_score)
+    }));
   }
 }

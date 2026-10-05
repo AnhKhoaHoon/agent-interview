@@ -218,8 +218,9 @@ docker compose exec backend npm run knowledge:index
 
 `EMBEDDING_API_KEY` is optional only when the backend's `LLM_API_KEY` has
 embedding access; otherwise supply it in the uncommitted root `.env`.
-`EMBEDDING_MODEL=text-embedding-3-small`, `RAG_MAX_CHUNKS=4`, and
-`RAG_MIN_SIMILARITY=0.72` are the V1 defaults. The job can incur embedding API
+`EMBEDDING_MODEL=text-embedding-3-small`, `RAG_MAX_CHUNKS=4`,
+`RAG_MIN_SIMILARITY=0.72`, and `RAG_MIN_KEYWORD_COVERAGE=0.35` are the V1
+defaults. The job can incur embedding API
 cost. It never runs automatically at startup and does not retain audio. If the
 index is absent or relevance is low, answers fall back to normal LLM knowledge.
 
