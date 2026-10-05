@@ -79,3 +79,4 @@ production prerequisites, smoke test, và rollback procedure, xem
 14. `docs/13-roadmap.md`
 15. `docs/14-devops-role-spec.md`
 16. `docs/15-codex-claude-prompts.md`
+17. `docs/16-llm-model-selection.md`

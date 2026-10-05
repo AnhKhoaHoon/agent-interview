@@ -129,6 +129,9 @@ STT_MAX_RETRIES=2
 The LLM and STT keys may be different credentials. Give each credential only
 the access it requires.
 
+For selecting and evaluating the answer-generation model without exposing
+credentials to the extension, see [LLM model selection](16-llm-model-selection.md).
+
 ### Local infrastructure and request limits
 
 Keep these values from `.env.example` unless the local topology changes:
