@@ -14,9 +14,9 @@ export interface VadConfiguration {
 
 export const DEFAULT_VAD_CONFIGURATION: Readonly<VadConfiguration> = {
   minimumSpeechMs: 300,
-  // Prefer a complete interview question over a slightly faster handoff. The
-  // visible Finish control can be used once the interviewer has clearly ended.
-  silenceTimeoutMs: 2_000,
+  // One second keeps the answer responsive; Finish remains available when an
+  // interviewer ends a question more quickly or needs an explicit handoff.
+  silenceTimeoutMs: 1_000,
   preRollMs: 250,
   postRollMs: 300,
   maximumUtteranceMs: 30_000,

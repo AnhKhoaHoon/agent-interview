@@ -23,7 +23,7 @@ export class TranscriptionUploadDto {
   @Min(1)
   speechEndedAtMs?: number;
 
-  @ApiProperty({ required: false, enum: ['vi', 'en'], default: 'vi', description: 'Language hint for this audio segment.' })
+  @ApiProperty({ required: false, enum: ['vi', 'en'], default: 'en', description: 'Language hint for this audio segment; English is used when omitted.' })
   @IsOptional()
   @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
   @IsIn(['vi', 'en'])

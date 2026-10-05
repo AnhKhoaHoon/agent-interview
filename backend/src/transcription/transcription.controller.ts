@@ -25,7 +25,7 @@ export class TranscriptionController {
         durationMs: { type: 'integer', example: 4200 },
         segmentId: { type: 'string', format: 'uuid' },
         speechEndedAtMs: { type: 'integer', example: 1735689600000 },
-        language: { type: 'string', enum: ['vi', 'en'], example: 'vi' }
+        language: { type: 'string', enum: ['vi', 'en'], example: 'en' }
       }
     }
   })

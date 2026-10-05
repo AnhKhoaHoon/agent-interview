@@ -2,10 +2,10 @@ import { devopsTranscriptionPrompt } from '../../roles/devops/devops-transcripti
 import { configuredSttLanguage, transcriptionLanguageFields, usesKeywordGuidance } from './openai-stt.provider';
 
 describe('configuredSttLanguage', () => {
-  it('defaults to Vietnamese when no environment override exists', () => {
+  it('defaults to English when no environment override exists', () => {
     const original = process.env.STT_LANGUAGE;
     delete process.env.STT_LANGUAGE;
-    expect(configuredSttLanguage()).toBe('vi');
+    expect(configuredSttLanguage()).toBe('en');
     if (original === undefined) delete process.env.STT_LANGUAGE;
     else process.env.STT_LANGUAGE = original;
   });

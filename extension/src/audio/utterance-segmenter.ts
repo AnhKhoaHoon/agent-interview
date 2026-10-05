@@ -56,6 +56,13 @@ export class UtteranceSegmenter {
     return this.beginFinalization(nowMs);
   }
 
+  /** Discards a locally detected utterance before it becomes an audio segment. */
+  cancelCurrentUtterance(): boolean {
+    if (this.state === 'listening') return false;
+    this.reset();
+    return true;
+  }
+
   completeFinalization(): void {
     if (this.state !== 'finalizing' || !this.emittedReady) return;
     this.state = 'listening';

@@ -25,7 +25,8 @@ excluded from the production build.
 
 The default runtime path uses the backend-only OpenAI STT implementation; set
 `STT_PROVIDER=openai`, `STT_API_KEY`, and `STT_MODEL`. Set optional
-`STT_LANGUAGE=vi` for Vietnamese or `en` for English. The V1 runtime accepts
+`STT_LANGUAGE=en` is the English fallback; use `vi` for Vietnamese-only clients
+that omit the per-segment language hint. The V1 runtime accepts
 only these two interview languages and has no fake
 STT fallback; deterministic transcription doubles exist only in tests. Raw audio is
 processed only for the request and is not persisted; Phase 5 publishes the

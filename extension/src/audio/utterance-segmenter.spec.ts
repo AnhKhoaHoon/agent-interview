@@ -48,4 +48,15 @@ describe('UtteranceSegmenter', () => {
     ]);
     expect(segmenter.currentState()).toBe('finalizing');
   });
+
+  it('lets the user discard a mistaken detected utterance without emitting a segment', () => {
+    const segmenter = new UtteranceSegmenter(DEFAULT_VAD_CONFIGURATION);
+    segmenter.observe(true, 0);
+    segmenter.observe(true, 300);
+
+    expect(segmenter.cancelCurrentUtterance()).toBe(true);
+    expect(segmenter.currentState()).toBe('listening');
+    expect(segmenter.tick(3_000)).toEqual([]);
+    expect(segmenter.cancelCurrentUtterance()).toBe(false);
+  });
 });

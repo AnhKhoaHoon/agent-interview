@@ -87,7 +87,7 @@ Fields:
 - `speechEndedAtMs` (optional): client-observed epoch milliseconds used only to
   calculate latency
 - `language` (optional): `vi` or `en`; a per-segment transcription hint. V1
-  supports Vietnamese and English only; omitted values default to backend `vi`.
+  supports Vietnamese and English only; omitted values default to backend `en`.
 
 MIME parameters emitted by browser recorders, for example
 `audio/webm;codecs=opus`, are normalized to their base type before validation.

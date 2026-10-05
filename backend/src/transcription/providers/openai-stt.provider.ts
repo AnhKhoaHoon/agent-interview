@@ -80,7 +80,7 @@ export function transcriptionLanguageFields(model: string, language?: 'vi' | 'en
   return usesKeywordGuidance(model) ? { languages: [language] } : { language };
 }
 
-export function configuredSttLanguage(value = process.env.STT_LANGUAGE ?? 'vi'): 'vi' | 'en' {
+export function configuredSttLanguage(value = process.env.STT_LANGUAGE ?? 'en'): 'vi' | 'en' {
   const language = value.trim().toLowerCase();
   if (language !== 'vi' && language !== 'en') {
     throw new ServiceUnavailableException({

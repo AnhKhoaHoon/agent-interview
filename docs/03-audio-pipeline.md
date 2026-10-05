@@ -26,16 +26,16 @@ VAD and segment timing lives in one configuration module in the extension (`audi
 Initial configuration:
 
 - minimum speech duration: 300 ms
-- silence timeout: 2,000 ms
+- silence timeout: 1,000 ms
 - max utterance: 30 s
 - pre-roll buffer: 250 ms
 - post-roll buffer: 300 ms
 
 All values should be configurable.
 
-Phase 4 detects voice from RMS samples of the captured tab audio. It begins an utterance only after minimum speech, retains pre-roll to avoid cutting its beginning, finalizes after the silence timeout plus post-roll, and prevents another segment from starting until the finalization flush completes. The two-second timeout deliberately favors a complete interview question when the interviewer pauses naturally.
+Phase 4 detects voice from RMS samples of the captured tab audio. It begins an utterance only after minimum speech, retains pre-roll to avoid cutting its beginning, finalizes after the silence timeout plus post-roll, and prevents another segment from starting until the finalization flush completes. The one-second timeout prioritizes a responsive interview handoff; **Finish** remains available when an explicit end-of-question signal is preferable.
 
-When **Speech detected** is visible, the Side Panel also exposes **Finish**. Use it only after the interviewer has completed the question: it finalizes the current utterance (including post-roll) immediately, sends it through STT, and keeps tab capture running for the next question. This gives the user an explicit end-of-question signal when a faster response is wanted. VAD still provides the automatic fallback, because no detector can reliably distinguish a long thinking pause from the true end of speech without a user signal.
+When **Speech detected** is visible, the Side Panel also exposes **Finish**. Use it only after the interviewer has completed the question: it finalizes the current utterance (including post-roll) immediately, sends it through STT, and keeps tab capture running for the next question. This gives the user an explicit end-of-question signal when a faster response is wanted. **Cancel** discards the current local utterance before it is uploaded; it is available while speech is detected and during the brief post-roll finalization window, then VAD returns to listening. It does not cancel an upload or answer that has already begun. VAD still provides the automatic fallback, because no detector can reliably distinguish a long thinking pause from the true end of speech without a user signal.
 
 The Side Panel shows a compact live **Sound** meter from the selected tab. An
 empty meter means Chrome is delivering no tab audio; re-open the picker, select

@@ -77,8 +77,10 @@ The Side Panel reports `STT_EMPTY_RESULT` as “No speech was recognized”; thi
 usually means the selected tab was not sharing audio or the utterance was too
 short. `STT_CREDENTIALS_REJECTED` requires correcting the backend-only
 `STT_API_KEY`; it is not an extension setting. `STT_RATE_LIMITED` is retryable.
-For a Vietnamese interview, use `STT_LANGUAGE=vi`; use `en` for English.
-V1 intentionally supports only these two languages. Restart the backend after
+The Side Panel language selector is sent with each segment and takes precedence
+over `STT_LANGUAGE`. The backend fallback is `en`; use `STT_LANGUAGE=vi` only
+for clients that omit the language hint and should default to Vietnamese. V1
+intentionally supports only these two languages. Restart the backend after
 changing this fallback setting.
 
 If common DevOps names are transcribed phonetically (for example `Docker` as a

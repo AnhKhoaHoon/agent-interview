@@ -79,6 +79,15 @@ export class VadPipeline {
     this.handleEvents(this.segmenter.finishCurrentUtterance(performance.now()));
   }
 
+  /** Discards the active local utterance without uploading it or stopping capture. */
+  cancelCurrentUtterance(): boolean {
+    if (!this.segmenter.cancelCurrentUtterance()) return false;
+    this.activeSegment = undefined;
+    this.finalizing = false;
+    this.callbacks.onStateChange('listening');
+    return true;
+  }
+
   private sample(): void {
     if (!this.analyser || !this.sampleBuffer) return;
     this.analyser.getByteTimeDomainData(this.sampleBuffer);

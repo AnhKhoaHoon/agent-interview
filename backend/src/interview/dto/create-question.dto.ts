@@ -8,7 +8,7 @@ export class CreateQuestionDto {
   @MaxLength(4_000)
   question!: string;
 
-  @ApiPropertyOptional({ enum: ['vi', 'en'], default: 'vi', description: 'Required answer language for this question.' })
+  @ApiPropertyOptional({ enum: ['vi', 'en'], default: 'en', description: 'Required answer language for this question.' })
   @IsOptional()
   @IsIn(['vi', 'en'])
   language?: 'vi' | 'en';

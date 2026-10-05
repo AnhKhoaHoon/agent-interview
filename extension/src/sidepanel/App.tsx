@@ -71,8 +71,8 @@ export function App(): JSX.Element {
   const [vadState, setVadState] = useState<VadUiState>();
   const [lastSegmentDurationMs, setLastSegmentDurationMs] = useState<number>();
   const [lastSpeechEndToFirstAnswerMs, setLastSpeechEndToFirstAnswerMs] = useState<number>();
-  const [transcriptionLanguage, setTranscriptionLanguage] = useState<TranscriptionLanguage>('vi');
-  const transcriptionLanguageRef = useRef<TranscriptionLanguage>('vi');
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState<TranscriptionLanguage>('en');
+  const transcriptionLanguageRef = useRef<TranscriptionLanguage>('en');
   const [audioLevel, setAudioLevel] = useState(0);
   const [speechThreshold, setSpeechThreshold] = useState(0);
   const pipelineRef = useRef<VadPipeline>();
@@ -376,6 +376,10 @@ export function App(): JSX.Element {
     pipelineRef.current?.finishCurrentUtterance();
   }, []);
 
+  const cancelCurrentQuestion = useCallback(() => {
+    pipelineRef.current?.cancelCurrentUtterance();
+  }, []);
+
   useEffect(() => {
     const listener = (message: unknown): void => {
       if (!message || typeof message !== 'object') return;
@@ -423,6 +427,7 @@ export function App(): JSX.Element {
               audioLevel={audioLevel}
               speechThreshold={speechThreshold}
               onFinishQuestion={finishCurrentQuestion}
+              onCancelQuestion={cancelCurrentQuestion}
               onStart={() => void startCapture('picker')}
               onUseActiveTab={() => void startCapture()}
               onStop={() => void stopCapture()}

@@ -36,10 +36,10 @@ LLM_MODEL=gpt-5
 STT_PROVIDER=openai
 STT_API_KEY=<openai-api-key>
 STT_MODEL=gpt-transcribe
-STT_LANGUAGE=vi
+STT_LANGUAGE=en
 ```
 
-`STT_LANGUAGE` là fallback. Extension gửi hint `vi` hoặc `en` theo lựa chọn
+`STT_LANGUAGE` là fallback tiếng Anh. Extension gửi hint `vi` hoặc `en` theo lựa chọn
 **Tiếng Việt** / **English** cho từng audio segment.
 
 RAG là tùy chọn. Khi dùng RAG, giữ:

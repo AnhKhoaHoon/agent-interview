@@ -20,6 +20,7 @@ interface CaptureControlsProps {
   audioLevel: number;
   speechThreshold: number;
   onFinishQuestion: () => void;
+  onCancelQuestion: () => void;
   onStart: () => void;
   onUseActiveTab: () => void;
   onStop: () => void;
@@ -32,7 +33,7 @@ function captureGuidance(error: string): string | undefined {
   return undefined;
 }
 
-export function CaptureControls({ status, vadState, error, disabled = false, language, onLanguageChange, audioLevel, speechThreshold, onFinishQuestion, onStart, onUseActiveTab, onStop }: CaptureControlsProps): JSX.Element {
+export function CaptureControls({ status, vadState, error, disabled = false, language, onLanguageChange, audioLevel, speechThreshold, onFinishQuestion, onCancelQuestion, onStart, onUseActiveTab, onStop }: CaptureControlsProps): JSX.Element {
   const capturing = status === 'requesting_permission' || status === 'connecting' || status === 'listening';
   const guidance = error ? captureGuidance(error) : undefined;
   const vadLabel = vadState === 'speech_detected' ? 'Speech detected' : vadState === 'finalizing' ? 'Finalizing' : 'Listening';
@@ -60,6 +61,7 @@ export function CaptureControls({ status, vadState, error, disabled = false, lan
         {capturing ? (
           <>
             {vadState === 'speech_detected' && <button className="button ghost capture-action compact-button" type="button" onClick={onFinishQuestion} aria-label="Finish the current interviewer question" title="Use only after the interviewer has finished the question">Finish</button>}
+            {(vadState === 'speech_detected' || vadState === 'finalizing') && <button className="button ghost capture-action compact-button" type="button" onClick={onCancelQuestion} aria-label="Discard the current detected interviewer audio" title="Discard this detected audio. It will not be transcribed or sent to the backend.">Cancel</button>}
             <button className="button secondary capture-action compact-button" type="button" onClick={onStop} aria-label="Stop interview audio capture" title="Stop interview audio capture">Stop</button>
           </>
         ) : (

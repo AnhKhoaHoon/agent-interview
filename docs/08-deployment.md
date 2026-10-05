@@ -120,8 +120,8 @@ STT_PROVIDER=openai
 STT_API_KEY=<your-backend-only-openai-key>
 # Quality-first technical interview transcription (supports en/vi hints)
 STT_MODEL=gpt-transcribe
-# V1 supports Vietnamese (vi) and English (en) only
-STT_LANGUAGE=vi
+# Fallback only when a client omits its language hint; V1 supports vi/en
+STT_LANGUAGE=en
 STT_TIMEOUT_MS=20000
 STT_MAX_RETRIES=2
 ```
@@ -455,7 +455,7 @@ are removed.
 | `STT_PROVIDER` | STT provider selection | No | Current runtime supports OpenAI |
 | `STT_API_KEY` | STT credential | Yes | Backend only |
 | `STT_MODEL` | Transcription model | No | Validate supported audio behavior |
-| `STT_LANGUAGE` | V1 transcription language | No | `vi` for Vietnamese (default) or `en` for English |
+| `STT_LANGUAGE` | Fallback transcription language | No | `en` for English (default) or `vi` for Vietnamese; the extension's per-segment selection takes precedence |
 | `STT_TIMEOUT_MS` | STT request timeout | No | Defaults from configuration |
 | `STT_MAX_RETRIES` | STT provider retries | No | Defaults to `2`; segment ID keeps successful uploads idempotent |
 | `STT_MAX_AUDIO_BYTES` | Upload byte limit | No | Proxy limit must be at least this large |
