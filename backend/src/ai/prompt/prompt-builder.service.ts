@@ -27,6 +27,9 @@ export class PromptBuilderService {
     if (category === 'docker') {
       return 'Docker accuracy: distinguish an image (a packaged, read-only layered artifact) from a running container. Image tags are mutable references, so do not describe every tag as immutable. For a direct Docker definition, stay within Docker: do not introduce CI/CD, registries, Kubernetes, deployment workflows, monitoring, or troubleshooting unless the interviewer explicitly asks about them.';
     }
+    if (category === 'azure') {
+      return 'Azure accuracy: distinguish Microsoft Entra identity/authentication from Azure RBAC authorization on Azure resources. Distinguish an AKS workload identity from cluster, node, or image-pull identities. Keep Azure examples Azure-specific; do not substitute AWS service names or add adjacent platforms unless the interviewer asks.';
+    }
     return 'Keep each example and operational detail specific to the current DevOps category. Do not introduce adjacent tools or workflows unless the interviewer explicitly asks about them.';
   }
 }

@@ -6,15 +6,16 @@ export interface KnowledgeContext { chunks: RetrievedKnowledgeChunk[]; }
 
 const RELATED_KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
   'docker-compose': ['docker'],
-  iac: ['terraform', 'ansible', 'aws'],
+  iac: ['terraform', 'ansible', 'aws', 'azure'],
+  azure: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd'],
   jenkins: ['cicd'],
   'gitlab-ci': ['cicd'],
   argocd: ['cicd'],
   prometheus: ['observability'],
   grafana: ['observability'],
   logging: ['observability'],
-  'system-design': ['aws', 'kubernetes', 'networking', 'observability'],
-  troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'terraform', 'cicd', 'observability', 'security']
+  'system-design': ['aws', 'azure', 'kubernetes', 'networking', 'observability'],
+  troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'azure', 'terraform', 'cicd', 'observability', 'security']
 };
 
 @Injectable()

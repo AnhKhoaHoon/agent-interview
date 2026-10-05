@@ -47,4 +47,18 @@ describe('KnowledgeRetrievalService', () => {
     );
     await expect(service.retrieve('What is Infrastructure as Code?', 'iac')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
   });
+
+  it('retrieves the Azure card and permits directly related Azure operational context', async () => {
+    process.env.RAG_MIN_SIMILARITY = '0.72';
+    const service = new KnowledgeRetrievalService(
+      { getConfiguredProvider: () => ({ embed: async () => [[0.1, 0.2]] }) } as never,
+      { search: async () => [
+        { sourcePath: 'devops/azure/README.md', category: 'azure', text: 'AKS uses workload identities for Azure access.', score: 0.95 },
+        { sourcePath: 'devops/networking/README.md', category: 'networking', text: 'Trace DNS and routes.', score: 0.89 }
+      ] } as never
+    );
+    await expect(service.retrieve('Why cannot my AKS workload reach Key Vault?', 'azure')).resolves.toEqual(expect.objectContaining({
+      chunks: [expect.objectContaining({ category: 'azure' }), expect.objectContaining({ category: 'networking' })]
+    }));
+  });
 });

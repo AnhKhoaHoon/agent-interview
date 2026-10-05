@@ -12,7 +12,10 @@ const TECHNICAL_TERM_ALIASES: ReadonlyArray<{ pattern: RegExp; canonical: string
   { pattern: /\bgit\s*lab\b/giu, canonical: 'GitLab' },
   { pattern: /\bargo\s*(?:cd|si\s*đi)\b/giu, canonical: 'Argo CD' },
   { pattern: /\bterra\s*form\b/giu, canonical: 'Terraform' },
-  { pattern: /\bkuber\s*net(?:es)?\b/giu, canonical: 'Kubernetes' }
+  { pattern: /\bkuber\s*net(?:es)?\b/giu, canonical: 'Kubernetes' },
+  // "Azure landing page" is a common STT substitution for the Azure architecture term.
+  // Do not rewrite an unqualified "landing page", which can be a valid web concept.
+  { pattern: /\bazure\s+landing\s+page\b/giu, canonical: 'Azure Landing Zone' }
 ];
 
 export interface TranscriptInterpretation {

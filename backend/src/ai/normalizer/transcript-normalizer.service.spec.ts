@@ -17,4 +17,12 @@ describe('TranscriptNormalizerService', () => {
       corrections: [{ heard: 'Zen tin', interpretedAs: 'Jenkins' }]
     });
   });
+
+  it('interprets the Azure-specific landing-page STT substitution without changing generic web terminology', () => {
+    expect(service.interpret('What is Azure landing page and how does it work?')).toEqual({
+      text: 'What is Azure Landing Zone and how does it work?',
+      corrections: [{ heard: 'Azure landing page', interpretedAs: 'Azure Landing Zone' }]
+    });
+    expect(service.normalize('How do I optimize a landing page?')).toBe('How do I optimize a landing page?');
+  });
 });

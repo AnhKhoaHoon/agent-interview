@@ -47,6 +47,20 @@ describe('PromptBuilderService', () => {
     expect(prompt.instructions).toContain('do not introduce CI/CD, registries, Kubernetes');
   });
 
+  it('keeps Azure identity examples precise and Azure-specific', () => {
+    const classification = {
+      role: 'devops' as const, category: 'azure', type: 'definition' as const,
+      level: 'middle' as const, intent: 'What is AKS workload identity?', responseMode: 'technical_definition' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'What is AKS workload identity?', classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.instructions).toContain('Microsoft Entra identity/authentication');
+    expect(prompt.instructions).toContain('Azure RBAC authorization');
+    expect(prompt.instructions).toContain('do not substitute AWS service names');
+  });
+
   it('grounds a response only with retrieved knowledge and never exposes retrieval to the candidate', () => {
     const classification = {
       role: 'devops' as const, category: 'docker', type: 'definition' as const,

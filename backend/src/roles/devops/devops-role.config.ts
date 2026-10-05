@@ -14,6 +14,7 @@ export const DEVOPS_CATEGORY_KEYWORDS: Record<string, string[]> = {
   terraform: ['Terraform', 'State', 'Plan', 'IaC'],
   iac: ['IaC', 'State', 'Plan', 'Automation'],
   aws: ['AWS', 'Availability', 'IAM', 'Monitoring'],
+  azure: ['Azure', 'AKS', 'Microsoft Entra', 'Managed Identity'],
   git: ['Git', 'Branches', 'Commits', 'Review'],
   cicd: ['CI/CD', 'Pipeline', 'Testing', 'Deployment'],
   networking: ['DNS', 'TCP', 'Load Balancing', 'Latency'],

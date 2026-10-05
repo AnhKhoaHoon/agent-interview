@@ -31,6 +31,8 @@ describe('QuestionClassifierService', () => {
     ['When should I rebase a Git branch?', 'git', 'definition', 'technical_definition'],
     ['How would you troubleshoot a service startup failure?', 'troubleshooting', 'troubleshooting', 'technical_troubleshooting'],
     ['How would you design a senior AWS platform?', 'aws', 'architecture', 'technical_architecture'],
+    ['What is AKS?', 'azure', 'definition', 'technical_definition'],
+    ['How would you troubleshoot an Azure Key Vault access failure?', 'azure', 'troubleshooting', 'technical_troubleshooting'],
     ['Which kubectl command would you use to inspect a pod?', 'kubernetes', 'command', 'technical_command'],
     ['Tell me about your DevOps experience.', 'general', 'experience', 'behavioral_experience']
   ])('classifies %s using the expected DevOps answer mode', (question, category, type, responseMode) => {

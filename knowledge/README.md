@@ -66,6 +66,7 @@ permissions. Those actions can hide evidence or increase impact.
 - [Docker](devops/docker/README.md)
 - [Kubernetes](devops/kubernetes/README.md)
 - [AWS](devops/aws/README.md)
+- [Azure](devops/azure/README.md)
 - [Infrastructure as Code](devops/iac/README.md)
 - [Terraform](devops/terraform/README.md)
 - [CI/CD](devops/cicd/README.md)

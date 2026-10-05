@@ -3,6 +3,7 @@ import { Classification, QuestionType, ResponseMode } from '../contracts';
 
 const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
   ['docker-compose', /\b(docker[ -]?compose|compose\.ya?ml)\b/i],
+  ['azure', /\b(azure|aks|bicep|azure devops|microsoft entra|entra id|key vault|azure container registry|acr|app service|azure functions|azure monitor|log analytics)\b/i],
   ['kubernetes', /\b(kubernetes|k8s|pod|deployment|helm|hpa|ingress|crashloopbackoff)\b/i],
   ['iac', /\b(infrastructure as code|iac|cloudformation|pulumi)\b/i],
   ['terraform', /\b(terraform|tfstate|state file|iac)\b/i],
