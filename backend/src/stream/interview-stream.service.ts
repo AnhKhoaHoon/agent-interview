@@ -5,6 +5,7 @@ export type InterviewEventName =
   | 'session.ready'
   | 'question.transcribing'
   | 'question.transcribed'
+  | 'question.cancelled'
   | 'answer.started'
   | 'answer.token'
   | 'answer.keywords'

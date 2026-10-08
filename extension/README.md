@@ -87,7 +87,7 @@ While capture is active, the Side Panel detects interviewer speech and shows **L
 - post-roll: 300 ms
 - maximum utterance: 30 s
 
-One local `Blob` segment is finalized per sustained utterance after one second of silence and post-roll. Once **Speech detected** appears, **Finish** can explicitly end the current question sooner; **Cancel** discards the currently detected local audio before STT upload. Neither button stops capture, so the next question can still be heard. Cancel is intentionally unavailable after upload has begun. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
+One local `Blob` segment is finalized per sustained utterance after one second of silence and post-roll. Once **Speech detected** appears, **Finish** can explicitly end the current question sooner; **Cancel** discards the currently detected local audio before STT upload. Neither button stops capture, so the next question can still be heard. Once an interviewer transcript is visible, **Cancel question** removes an incorrect transcript and its correlated answer, asks the backend to abort its stream, and keeps tab capture active for the next question. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
 
 ## Phase 5 transcription
 

@@ -145,6 +145,21 @@ extension.
 - **Verify:** review lifecycle execution, recovered-object tests, storage cost
   trend, and that required versions remain recoverable through the agreed window.
 
+## Senior production lens
+
+- Start with workload isolation and account boundaries: separate production
+  access, use scoped roles, centralize audit evidence, and do not use one broad
+  administrator role as the delivery identity.
+- Multi-AZ addresses many in-region failures; it is not automatically regional
+  disaster recovery. Define RTO/RPO, data replication/failover behavior, DNS or
+  traffic switching, and regularly exercise the recovery path.
+- Make capacity and cost decisions from measured demand: autoscaling limits,
+  quotas, connection pools, retry behavior, NAT/data-transfer costs, log
+  retention, and unused resources can all affect the production outcome.
+- For a senior incident answer, state blast radius, use CloudTrail/CloudWatch
+  plus service evidence to distinguish hypotheses, choose a reversible
+  mitigation, and verify user-facing SLI before closing.
+
 ## Concise interview delivery
 
 “I start from availability, RTO/RPO, traffic, security, and cost requirements;

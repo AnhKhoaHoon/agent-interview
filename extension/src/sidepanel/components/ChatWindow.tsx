@@ -9,9 +9,10 @@ interface ChatWindowProps {
   hasSession: boolean;
   onRetryTranscription?: (messageId: string) => void;
   onRetryAnswer?: (questionId: string) => void;
+  onCancelQuestion?: (questionId: string) => void;
 }
 
-export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetryAnswer }: ChatWindowProps): JSX.Element {
+export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetryAnswer, onCancelQuestion }: ChatWindowProps): JSX.Element {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -49,7 +50,7 @@ export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetry
             </article>
             <p className="preview-footnote">Listen → Transcribe → Answer → Continue</p>
           </section>
-        ) : messages.map((message) => <ChatBubble key={message.id} message={message} onRetryTranscription={onRetryTranscription} onRetryAnswer={onRetryAnswer} />)}
+        ) : messages.map((message) => <ChatBubble key={message.id} message={message} onRetryTranscription={onRetryTranscription} onRetryAnswer={onRetryAnswer} onCancelQuestion={onCancelQuestion} />)}
       </div>
     </section>
   );

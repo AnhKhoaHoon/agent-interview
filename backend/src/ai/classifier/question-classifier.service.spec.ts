@@ -32,10 +32,23 @@ describe('QuestionClassifierService', () => {
     ['How would you troubleshoot a service startup failure?', 'troubleshooting', 'troubleshooting', 'technical_troubleshooting'],
     ['How would you design a senior AWS platform?', 'aws', 'architecture', 'technical_architecture'],
     ['What is AKS?', 'azure', 'definition', 'technical_definition'],
+    ['How would you monitor a production GKE service?', 'gcp', 'scenario', 'technical_scenario'],
+    ['How would you troubleshoot a microservice dependency timeout?', 'microservices', 'troubleshooting', 'technical_troubleshooting'],
+    ['How would you secure a CI/CD software supply chain?', 'devsecops', 'scenario', 'technical_scenario'],
     ['How would you troubleshoot an Azure Key Vault access failure?', 'azure', 'troubleshooting', 'technical_troubleshooting'],
+    ['How would you deploy an AKS service safely with Azure Pipelines?', 'azure', 'scenario', 'technical_scenario'],
+    ['How would you troubleshoot Azure Pipelines service connection failure?', 'azure', 'troubleshooting', 'technical_troubleshooting'],
     ['Which kubectl command would you use to inspect a pod?', 'kubernetes', 'command', 'technical_command'],
     ['Tell me about your DevOps experience.', 'general', 'experience', 'behavioral_experience']
   ])('classifies %s using the expected DevOps answer mode', (question, category, type, responseMode) => {
     expect(service.classify(question)).toMatchObject({ category, type, responseMode });
+  });
+
+  it.each([
+    'How would you design a production AKS platform?',
+    'How would you define an RTO and RPO for a multi-region Azure service?',
+    'Làm sao triển khai AKS ở môi trường sản xuất quy mô lớn?'
+  ])('uses senior answer depth for an explicit production question: %s', (question) => {
+    expect(service.classify(question)).toMatchObject({ level: 'senior' });
   });
 });

@@ -81,6 +81,21 @@
   are closed, and recovery objectives are measured. Do not improvise destructive
   cleanup before incident leadership/evidence requirements are understood.
 
+## Senior production lens
+
+- Start from assets, trust boundaries, identities, and likely attack paths.
+  Rank controls by blast-radius reduction and detectability rather than adding
+  a tool without a threat model or owner.
+- Production access should be short-lived, attributable, least-privilege, and
+  reviewed. Separate human, CI, platform, and workload identities; emergency
+  access needs time bounds, audit, and post-use review.
+- Incident response must preserve evidence while containing harm: define who
+  can isolate a workload, revoke credentials, rotate secrets, restore data,
+  notify stakeholders, and decide whether an environment is trustworthy again.
+- Security recovery is not complete when the service is up. Verify the original
+  access path is denied, persistence is removed, logs/audit coverage is intact,
+  and the preventive control is tested without widening the blast radius.
+
 ## Concise interview delivery
 
 “I prioritize identity and blast radius: contain the verified path, preserve

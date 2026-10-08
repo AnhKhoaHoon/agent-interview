@@ -4,9 +4,10 @@ interface ChatBubbleProps {
   message: ChatMessage;
   onRetryTranscription?: (messageId: string) => void;
   onRetryAnswer?: (questionId: string) => void;
+  onCancelQuestion?: (questionId: string) => void;
 }
 
-export function ChatBubble({ message, onRetryTranscription, onRetryAnswer }: ChatBubbleProps): JSX.Element {
+export function ChatBubble({ message, onRetryTranscription, onRetryAnswer, onCancelQuestion }: ChatBubbleProps): JSX.Element {
   const isInterviewer = message.role === 'interviewer';
   const label = isInterviewer ? 'Interviewer' : 'AI answer';
   const detail = isInterviewer
@@ -28,6 +29,7 @@ export function ChatBubble({ message, onRetryTranscription, onRetryAnswer }: Cha
       )}
       {message.status === 'failed' && message.retryable && message.role === 'interviewer' && onRetryTranscription && <button className="retry-button" type="button" onClick={() => onRetryTranscription(message.id)}>Retry transcription</button>}
       {message.status === 'failed' && message.retryable && message.role === 'assistant' && message.questionId && onRetryAnswer && <button className="retry-button" type="button" onClick={() => onRetryAnswer(message.questionId!)}>Retry answer</button>}
+      {isInterviewer && !message.status && onCancelQuestion && <button className="retry-button cancel-question-button" type="button" onClick={() => onCancelQuestion(message.id)} title="Discard this incorrect transcript and stop its AI answer">Cancel question</button>}
     </article>
   );
 }

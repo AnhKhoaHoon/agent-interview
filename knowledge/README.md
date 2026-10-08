@@ -30,6 +30,24 @@ mitigation -> root-cause fix -> verification and prevention`
 Do not jump directly to restarting, scaling, increasing a timeout, or widening
 permissions. Those actions can hide evidence or increase impact.
 
+## Senior production standard
+
+For a senior applied answer, add only the production detail that changes the
+decision:
+
+1. State the service objective and the relevant constraint: SLO, RTO/RPO,
+   security boundary, capacity, compliance, or cost.
+2. Name the blast radius and choose the smallest reversible change first.
+3. Explain one material trade-off rather than claiming every design is highly
+   available, zero-downtime, or multi-region.
+4. Tie delivery to an immutable version, ownership, observability, and a
+   concrete rollback or recovery decision.
+5. Prove the result with a user-facing SLI and, when relevant, a tested restore
+   or failure exercise.
+
+This does not make a direct definition longer. Use this layer for design,
+scenario, troubleshooting, comparison, and production questions only.
+
 ## Accuracy and experience rules
 
 - Technical facts should agree with the official references linked in each
@@ -67,6 +85,9 @@ permissions. Those actions can hide evidence or increase impact.
 - [Kubernetes](devops/kubernetes/README.md)
 - [AWS](devops/aws/README.md)
 - [Azure](devops/azure/README.md)
+- [GCP](devops/gcp/README.md)
+- [Microservices](devops/microservices/README.md)
+- [DevSecOps](devops/devsecops/README.md)
 - [Infrastructure as Code](devops/iac/README.md)
 - [Terraform](devops/terraform/README.md)
 - [CI/CD](devops/cicd/README.md)

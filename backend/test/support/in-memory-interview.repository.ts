@@ -58,6 +58,24 @@ export class InMemoryInterviewRepository extends InterviewRepository {
     }
   }
 
+  async deleteQuestion(interviewId: string, questionId: string): Promise<boolean> {
+    const interview = this.interviews.get(interviewId);
+    if (!interview || !interview.messages.some((message) => message.id === questionId && message.role === 'interviewer')) return false;
+    const removedMessageIds = new Set(
+      interview.messages
+        .filter((message) => message.id === questionId || message.questionId === questionId)
+        .map((message) => message.id)
+    );
+    interview.messages = interview.messages.filter((message) => !removedMessageIds.has(message.id));
+    this.contexts.forEach((_context, messageId) => {
+      if (removedMessageIds.has(messageId)) this.contexts.delete(messageId);
+    });
+    this.transcriptions.forEach((transcription, key) => {
+      if (transcription.messageId === questionId) this.transcriptions.delete(key);
+    });
+    return true;
+  }
+
   async findTranscriptionBySegment(interviewId: string, segmentId: string): Promise<PersistedTranscription | undefined> {
     const persisted = this.transcriptions.get(`${interviewId}:${segmentId}`);
     return persisted ? { ...persisted } : undefined;

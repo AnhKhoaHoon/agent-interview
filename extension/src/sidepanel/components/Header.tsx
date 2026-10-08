@@ -30,13 +30,15 @@ export function Header({ status, hasSession, controls, onStart, onStop }: Header
             </span>
           </div>
         </div>
-        {hasSession ? (
-          <button className="button secondary compact-button session-button" type="button" onClick={onStop} aria-label="End interview session">End</button>
-        ) : (
-          <button className="button compact-button session-button" type="button" onClick={onStart} disabled={status === 'thinking'}>Start</button>
-        )}
+        <div className="header-actions">
+          <div className="header-controls">{controls}</div>
+          {hasSession ? (
+            <button className="button secondary compact-button session-button" type="button" onClick={onStop} aria-label="End interview session">End</button>
+          ) : (
+            <button className="button compact-button session-button" type="button" onClick={onStart} disabled={status === 'thinking'}>Start</button>
+          )}
+        </div>
       </div>
-      <div className="header-controls">{controls}</div>
     </header>
   );
 }

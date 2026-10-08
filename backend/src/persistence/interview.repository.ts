@@ -50,6 +50,7 @@ export abstract class InterviewRepository {
   abstract endInterview(interviewId: string, endedAt: string): Promise<void>;
   abstract appendMessage(message: Omit<InterviewMessage, 'sequenceNo'>): Promise<InterviewMessage>;
   abstract updateMessage(message: Pick<InterviewMessage, 'id' | 'content' | 'status'>): Promise<void>;
+  abstract deleteQuestion(interviewId: string, questionId: string): Promise<boolean>;
   abstract findTranscriptionBySegment(interviewId: string, segmentId: string): Promise<PersistedTranscription | undefined>;
   abstract saveTranscription(input: SaveTranscriptionInput): Promise<void>;
   abstract findAnswerContext(messageId: string): Promise<ConversationMessage[] | undefined>;

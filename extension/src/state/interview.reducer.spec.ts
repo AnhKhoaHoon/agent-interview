@@ -93,6 +93,25 @@ describe('interviewReducer', () => {
     ]));
   });
 
+  it('removes an incorrect transcript and only its correlated answer', () => {
+    let state = interviewReducer(initialPanelState, {
+      type: 'add-question', message: { id: 'q1', role: 'interviewer', content: 'Incorrect transcript' }
+    });
+    state = interviewReducer(state, { type: 'streaming', messageId: 'a1', questionId: 'q1' });
+    state = interviewReducer(state, {
+      type: 'add-question', message: { id: 'q2', role: 'interviewer', content: 'Keep this question' }
+    });
+    state = interviewReducer(state, { type: 'streaming', messageId: 'a2', questionId: 'q2' });
+    state = interviewReducer(state, { type: 'discard-question', questionId: 'q1' });
+
+    expect(state.messages).toEqual([
+      expect.objectContaining({ id: 'q2' }),
+      expect.objectContaining({ id: 'a2', questionId: 'q2' })
+    ]);
+    expect(state.activeAnswerIds).toEqual(['a2']);
+    expect(state.status).toBe('streaming');
+  });
+
   it('rejects a token whose question correlation does not match the assistant bubble', () => {
     let state = interviewReducer(initialPanelState, {
       type: 'add-question',

@@ -64,6 +64,22 @@
 - **Verify:** recreate the stack from clean state and prove connection, schema
   readiness, restart recovery, and persisted data behavior.
 
+## Senior production lens
+
+- Treat the image as a supply-chain artifact: pin and update base images
+  intentionally, build reproducibly, scan the artifact, record its digest, and
+  promote that exact digest rather than relying on a mutable tag.
+- Runtime safety belongs outside the Dockerfile as well: run with the least
+  privilege practical, set resource limits, use read-only or explicitly managed
+  writable paths, and define health behavior without turning dependency
+  failures into restart storms.
+- Registry availability, image pull latency, cache policy, and retention are
+  production dependencies. A successful local build does not prove a workload
+  can fetch the exact digest in every target environment.
+- During a container incident, preserve exit state and logs, identify the
+  immutable image/configuration/secret reference, mitigate with a known-good
+  version, and fix the declarative source rather than editing a live container.
+
 ## Concise interview delivery
 
 “I treat an image as the immutable release artifact and the container as its

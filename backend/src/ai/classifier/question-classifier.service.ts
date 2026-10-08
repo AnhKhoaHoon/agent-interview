@@ -3,7 +3,10 @@ import { Classification, QuestionType, ResponseMode } from '../contracts';
 
 const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
   ['docker-compose', /\b(docker[ -]?compose|compose\.ya?ml)\b/i],
-  ['azure', /\b(azure|aks|bicep|azure devops|microsoft entra|entra id|key vault|azure container registry|acr|app service|azure functions|azure monitor|log analytics)\b/i],
+  ['azure', /\b(azure|aks|bicep|azure devops|azure pipelines?|azure repos|azure artifacts|microsoft entra|entra id|key vault|azure container registry|acr|app service|azure functions|azure monitor|log analytics|workload identity federation)\b/i],
+  ['gcp', /\b(gcp|google cloud|gke|cloud run|cloud build|artifact registry|cloud monitoring|cloud logging|cloud trace|cloud sql|pub\/?sub|bigquery|workload identity)\b/i],
+  ['devsecops', /\b(devsecops|slsa|sbom|sast|dast|software composition analysis|\bsca\b|secret scanning|policy as code|software supply chain|supply chain security)\b/i],
+  ['microservices', /\b(microservices?|service mesh|api gateway|distributed system|saga pattern|outbox pattern)\b/i],
   ['kubernetes', /\b(kubernetes|k8s|pod|deployment|helm|hpa|ingress|crashloopbackoff)\b/i],
   ['iac', /\b(infrastructure as code|iac|cloudformation|pulumi)\b/i],
   ['terraform', /\b(terraform|tfstate|state file|iac)\b/i],
@@ -64,7 +67,7 @@ export class QuestionClassifierService {
   }
 
   private detectLevel(question: string): Classification['level'] {
-    if (/\b(senior|staff|principal)\b/i.test(question)) return 'senior';
+    if (/\b(senior|staff|principal|production|prod|enterprise|high availability|multi[ -]region|slo|rto|rpo|at scale)\b|sản\s+xuất|thực\s+tế|quy\s+mô\s+lớn/iu.test(question)) return 'senior';
     if (/\b(junior|entry)\b/i.test(question)) return 'junior';
     return 'middle';
   }

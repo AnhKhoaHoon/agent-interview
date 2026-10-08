@@ -75,6 +75,22 @@
 - **Verify:** a synthetic request produces a connected trace with service/error
   attributes and can be followed to the responsible log/event.
 
+## Senior production lens
+
+- Begin with service-level objectives and error budgets, not dashboards. Define
+  the user journey, SLI numerator/denominator, data-quality assumptions,
+  ownership, and the action an alert should cause.
+- Instrument deployment version, tenant or route only when cardinality and
+  privacy allow it. Bound labels, sampling, retention, and query cost so the
+  observability system remains usable during a high-cardinality or incident
+  surge.
+- Correlate a production event through change/deployment timeline, golden
+  signals, traces, dependency health, and logs. A single graph or host metric
+  is evidence, not root cause.
+- Test alerts, dashboards, runbooks, and paging ownership. Recovery means the
+  original SLI is sustained through a defined observation window, not merely
+  that an alert is acknowledged or a process restarted.
+
 ## Concise interview delivery
 
 “I define the user-facing SLI first, compare it with deployment and dependency

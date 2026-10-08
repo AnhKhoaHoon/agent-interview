@@ -133,3 +133,15 @@ export function retryAnswer(interviewId: string, accessToken: string, questionId
     accessToken
   );
 }
+
+export function cancelQuestion(
+  interviewId: string,
+  accessToken: string,
+  questionId: string
+): Promise<{ questionId: string; cancelled: true }> {
+  return requestJson<{ questionId: string; cancelled: true }>(
+    `/interviews/${encodeURIComponent(interviewId)}/questions/${encodeURIComponent(questionId)}/cancel`,
+    { method: 'POST' },
+    accessToken
+  );
+}

@@ -66,6 +66,22 @@
 - **Verify:** check the active process, expected listener with `ss -lntp`, local
   health endpoint, external SLI, and stable restart count.
 
+## Senior production lens
+
+- Manage hosts as a fleet: immutable or consistently configured images,
+  patch/kernel lifecycle, capacity headroom, time synchronization, central
+  logging, backups, and configuration drift detection are more reliable than
+  manual SSH remediation.
+- Define host-level signals in relation to service impact. Load average,
+  memory pressure, disk latency, file descriptors, and network errors require
+  correlation with latency/error SLOs and recent deploy or traffic changes.
+- During an incident, protect evidence and blast radius first: stop unsafe
+  automation, snapshot or preserve needed logs where policy permits, mitigate
+  on a small ring, then apply the declarative fix across the fleet.
+- A reboot, failover, or scale-out is a mitigation, not root-cause proof.
+  Verify recovery under representative load and add the narrowest alert,
+  capacity guardrail, or runbook step that would detect recurrence.
+
 ## Concise interview delivery
 
 “I first confirm impact and recent changes, then separate CPU, memory, disk,

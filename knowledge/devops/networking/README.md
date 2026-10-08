@@ -66,6 +66,21 @@
 - **Verify:** run a controlled request test and confirm success rate, tail
   latency, reset/retransmit counts, and resource headroom.
 
+## Senior production lens
+
+- Design from traffic flow and failure domains: client, DNS, edge/load
+  balancer, TLS, ingress, service, dependency, and return path. Document the
+  intended route, identity, timeout/retry budget, and ownership at each hop.
+- Redundancy must be end to end. Multiple application instances do not provide
+  availability if DNS, certificates, load balancing, NAT/egress, a firewall
+  rule, or a downstream dependency remains a single failure point.
+- Timeouts, retries, connection pools, and circuit breaking are a shared
+  budget. Unbounded retries or longer timeouts can amplify queueing and turn a
+  partial dependency failure into a wider outage.
+- For a production change, use staged traffic, compare baseline SLI from
+  multiple client paths, and retain a safe route/configuration rollback. Avoid
+  broad firewall exceptions that hide an unknown routing or identity fault.
+
 ## Concise interview delivery
 
 “I troubleshoot from DNS to TCP, TLS, HTTP, then the application. I test from

@@ -15,6 +15,7 @@ export type PanelAction =
   | { type: 'transcribing'; temporaryId: string }
   | { type: 'transcribed'; temporaryId: string; message: ChatMessage }
   | { type: 'transcription-error'; temporaryId: string; message: string; retryable: boolean }
+  | { type: 'discard-question'; questionId: string }
   | { type: 'append-token'; messageId: string; questionId: string; text: string }
   | { type: 'keywords'; messageId: string; questionId: string; keywords: string[] }
   | { type: 'completed'; messageId: string; questionId: string }
@@ -82,6 +83,20 @@ export function interviewReducer(state: PanelState, action: PanelAction): PanelS
           ? { ...message, content: action.message, status: 'failed', retryable: action.retryable }
           : message)
       };
+    case 'discard-question': {
+      const removedAnswerIds = new Set(
+        state.messages
+          .filter((message) => message.questionId === action.questionId)
+          .map((message) => message.id)
+      );
+      const activeAnswerIds = state.activeAnswerIds.filter((messageId) => !removedAnswerIds.has(messageId));
+      return {
+        ...state,
+        status: state.status === 'streaming' && activeAnswerIds.length === 0 ? 'connected' : state.status,
+        activeAnswerIds,
+        messages: state.messages.filter((message) => message.id !== action.questionId && message.questionId !== action.questionId)
+      };
+    }
     case 'append-token':
       return {
         ...state,

@@ -327,6 +327,22 @@ network, compliance, scale, skills, and migration constraints.”
 - **Verify:** exercise a least-privilege deployment path, confirm revoked
   credentials fail, and review runner and cloud audit logs for follow-on use.
 
+## Senior production lens
+
+- A production pipeline is part of the attack surface. Protect branches and
+  environments, use short-lived scoped identities, isolate untrusted builds
+  from deployment credentials, and retain provenance/audit evidence for the
+  exact artifact.
+- Define release policy before the incident: who can approve, what automated
+  checks are required, which SLI promotes a canary, who can halt it, and which
+  previous immutable version is safe to restore.
+- Separate application rollback from irreversible changes. Database/schema,
+  queue-message, and infrastructure migrations need compatibility and
+  expand/contract plans; rolling back a container alone may not recover them.
+- Measure lead time, change failure rate, recovery time, queue duration, flaky
+  tests, and deployment health. Optimize the actual bottleneck rather than
+  deleting safety checks to make a dashboard green.
+
 ## Concise interview delivery
 
 “My pipeline builds once, proves the artifact with layered tests and security

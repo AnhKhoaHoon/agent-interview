@@ -42,7 +42,9 @@ Phase 6 tests verify automatic transcript-to-answer SSE streaming, IDs on every
 answer lifecycle event, idempotency for a repeated `segmentId`, stable ordering
 for two active question/answer pairs, rejection of a token with mismatched
 question correlation, and retrying a failed answer without removing its
-transcript.
+transcript. They also verify that cancelling an incorrect final transcript
+aborts only its correlated answer stream, removes that question/answer pair,
+and leaves other interview turns intact.
 
 Phase 7 tests verify the ten-message bound, removal of an orphaned leading
 assistant answer, topic/level inheritance for follow-ups, preservation of a new
@@ -154,6 +156,9 @@ Verify:
 - transcript is correct
 - a retryable transcription error offers retry
 - a final transcript starts one streamed assistant answer automatically
+- **Cancel** during speech detection discards local audio before STT; **Cancel
+  question** after an incorrect transcript removes its transcript/answer pair
+  and does not interrupt capture for the next question
 - capture continues while an answer streams and a following utterance remains ordered
 - a retryable answer error offers Retry answer without losing the transcript
 - next utterance works
@@ -167,6 +172,9 @@ Maintain deterministic fixtures:
 - Git shared-history/recovery question
 - CrashLoopBackOff troubleshooting question
 - AWS architecture scenario
+- GCP monitoring/alerting scenario
+- microservice dependency-timeout and duplicate-event scenarios
+- DevSecOps supply-chain and secret-exposure scenarios
 - noisy audio
 - silence-only audio
 - long question

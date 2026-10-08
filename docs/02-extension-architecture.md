@@ -92,7 +92,7 @@ Phase 3 capture state is independent of chat state and uses: `requesting_permiss
 ## Phase 4 VAD and segmentation
 
 - Voice activity state is shown independently as `Listening`, `Speech detected`, and `Finalizing`.
-- While `Speech detected` is active, **Finish** is an explicit end-of-question action. It finalizes only the current utterance and leaves selected-tab capture running for the next question; the automatic silence timeout remains the fallback. **Cancel** discards the currently detected local audio (including during the brief finalizing window), sends nothing to STT or the backend, and returns VAD to listening.
+- While `Speech detected` is active, **Finish** is an explicit end-of-question action. It finalizes only the current utterance and leaves selected-tab capture running for the next question; the automatic silence timeout remains the fallback. **Cancel** discards the currently detected local audio (including during the brief finalizing window), sends nothing to STT or the backend, and returns VAD to listening. After STT has produced a visible transcript, **Cancel question** removes the incorrect transcript and its correlated answer, aborts the backend stream where possible, and leaves capture running for the next turn.
 - A finalized in-memory audio segment is emitted once per utterance. It is not sent to the backend in this phase.
 - The runtime retains bounded mono PCM frames for pre-roll and emits a
   self-contained WAV file through a packaged `AudioWorklet`. It does not use

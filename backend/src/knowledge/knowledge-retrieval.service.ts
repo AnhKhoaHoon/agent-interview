@@ -8,14 +8,20 @@ const RELATED_KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
   'docker-compose': ['docker'],
   iac: ['terraform', 'ansible', 'aws', 'azure'],
   azure: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd'],
+  gcp: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd', 'microservices', 'devsecops'],
+  microservices: ['networking', 'observability', 'security', 'cicd', 'kubernetes'],
+  devsecops: ['security', 'cicd', 'git', 'docker', 'iac', 'kubernetes', 'gcp', 'aws', 'azure'],
   jenkins: ['cicd'],
   'gitlab-ci': ['cicd'],
   argocd: ['cicd'],
   prometheus: ['observability'],
   grafana: ['observability'],
   logging: ['observability'],
-  'system-design': ['aws', 'azure', 'kubernetes', 'networking', 'observability'],
-  troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'azure', 'terraform', 'cicd', 'observability', 'security']
+  observability: ['microservices', 'gcp'],
+  security: ['devsecops'],
+  cicd: ['devsecops'],
+  'system-design': ['aws', 'azure', 'gcp', 'kubernetes', 'microservices', 'networking', 'observability'],
+  troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'terraform', 'cicd', 'observability', 'microservices', 'devsecops', 'security']
 };
 
 const KEYWORD_STOP_WORDS = new Set([

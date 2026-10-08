@@ -3,7 +3,7 @@ import { CaptureDiagnostics, CaptureInterruption, CaptureStatus, TabAudioCapture
 import { VadPipeline, type FinalizedAudioSegment } from '../audio/vad-pipeline';
 import type { VadUiState } from '../audio/utterance-segmenter';
 import { ApiClientError } from '../api/client';
-import { askQuestion, CandidateContextKind, CandidateContextSummary, createInterview, deleteCandidateContext, endInterview, eventStreamUrl, listCandidateContexts, retryAnswer as requestAnswerRetry, uploadCandidateContext, uploadTranscription } from '../api/interview.api';
+import { askQuestion, cancelQuestion as requestQuestionCancel, CandidateContextKind, CandidateContextSummary, createInterview, deleteCandidateContext, endInterview, eventStreamUrl, listCandidateContexts, retryAnswer as requestAnswerRetry, uploadCandidateContext, uploadTranscription } from '../api/interview.api';
 import { connectInterviewEvents, type SseConnection } from '../realtime/sse-client';
 import { initialPanelState, interviewReducer } from '../state/interview.reducer';
 import type { InterviewEvent } from '../types/events';
@@ -59,7 +59,9 @@ export function App(): JSX.Element {
   const sessionRef = useRef<InterviewSession>();
   const sourceRef = useRef<SseConnection>();
   const activeAnswerIdsRef = useRef(new Set<string>());
+  const activeAnswerQuestionIdsRef = useRef(new Map<string, string>());
   const retryingAnswerIdsRef = useRef(new Set<string>());
+  const ignoredQuestionIdsRef = useRef(new Set<string>());
   const speechEndedAtByQuestionIdRef = useRef(new Map<string, number>());
   const firstAnswerTokenSeenRef = useRef(new Set<string>());
   const [captureStatus, setCaptureStatus] = useState<CaptureStatus>('stopped');
@@ -159,6 +161,25 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  const cancelTranscript = useCallback(async (questionId: string) => {
+    const activeSession = sessionRef.current;
+    if (!activeSession) return;
+    ignoredQuestionIdsRef.current.add(questionId);
+    speechEndedAtByQuestionIdRef.current.delete(questionId);
+    activeAnswerQuestionIdsRef.current.forEach((activeQuestionId, answerMessageId) => {
+      if (activeQuestionId === questionId) {
+        activeAnswerQuestionIdsRef.current.delete(answerMessageId);
+        activeAnswerIdsRef.current.delete(answerMessageId);
+      }
+    });
+    dispatch({ type: 'discard-question', questionId });
+    try {
+      await requestQuestionCancel(activeSession.id, activeSession.accessToken, questionId);
+    } catch (error) {
+      dispatch({ type: 'error', message: 'The incorrect transcript is hidden locally, but backend cancellation failed: ' + errorMessage(error) });
+    }
+  }, []);
+
   const handleEvent = useCallback((event: InterviewEvent) => {
     const { data } = event;
     if (event.type === 'question.transcribed') {
@@ -168,6 +189,7 @@ export function App(): JSX.Element {
       const understoodText = stringField(data, 'understoodText');
       const segmentId = stringField(data, 'segmentId');
       const speechEndedAtMs = numberField(data, 'speechEndedAtMs');
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (questionId && speechEndedAtMs) speechEndedAtByQuestionIdRef.current.set(questionId, speechEndedAtMs);
       if (messageId && text) {
         const message = { id: messageId, role: 'interviewer' as const, content: text, ...(understoodText ? { understoodText } : {}) };
@@ -175,11 +197,28 @@ export function App(): JSX.Element {
         else dispatch({ type: 'add-question', message });
       }
     }
+    if (event.type === 'question.cancelled') {
+      const questionId = stringField(data, 'questionId');
+      if (questionId) {
+        ignoredQuestionIdsRef.current.add(questionId);
+        speechEndedAtByQuestionIdRef.current.delete(questionId);
+        activeAnswerQuestionIdsRef.current.forEach((activeQuestionId, answerMessageId) => {
+          if (activeQuestionId === questionId) {
+            activeAnswerQuestionIdsRef.current.delete(answerMessageId);
+            activeAnswerIdsRef.current.delete(answerMessageId);
+          }
+        });
+        dispatch({ type: 'discard-question', questionId });
+      }
+      return;
+    }
     if (event.type === 'answer.started') {
       const messageId = stringField(data, 'messageId');
       const questionId = stringField(data, 'questionId');
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (messageId && questionId) {
         activeAnswerIdsRef.current.add(messageId);
+        activeAnswerQuestionIdsRef.current.set(messageId, questionId);
         dispatch({ type: 'streaming', messageId, questionId });
       }
     }
@@ -187,6 +226,7 @@ export function App(): JSX.Element {
       const messageId = stringField(data, 'messageId');
       const questionId = stringField(data, 'questionId');
       const text = stringField(data, 'text');
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (messageId && questionId && text) dispatch({ type: 'append-token', messageId, questionId, text });
       if (messageId && questionId && !firstAnswerTokenSeenRef.current.has(messageId)) {
         firstAnswerTokenSeenRef.current.add(messageId);
@@ -202,13 +242,16 @@ export function App(): JSX.Element {
       const messageId = stringField(data, 'messageId');
       const questionId = stringField(data, 'questionId');
       const keywords = stringArrayField(data, 'keywords');
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (messageId && questionId && keywords) dispatch({ type: 'keywords', messageId, questionId, keywords });
     }
     if (event.type === 'answer.completed') {
       const messageId = stringField(data, 'messageId');
       const questionId = stringField(data, 'questionId');
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (messageId && questionId) {
         activeAnswerIdsRef.current.delete(messageId);
+        activeAnswerQuestionIdsRef.current.delete(messageId);
         dispatch({ type: 'completed', messageId, questionId });
       }
     }
@@ -217,8 +260,10 @@ export function App(): JSX.Element {
       const questionId = stringField(data, 'questionId');
       const message = stringField(data, 'message') ?? 'The backend could not generate an answer.';
       const retryable = data.retryable === true;
+      if (questionId && ignoredQuestionIdsRef.current.has(questionId)) return;
       if (messageId && questionId) {
         activeAnswerIdsRef.current.delete(messageId);
+        activeAnswerQuestionIdsRef.current.delete(messageId);
         dispatch({ type: 'answer-error', messageId, questionId, message, retryable });
       } else {
         dispatch({ type: 'error', message });
@@ -292,7 +337,9 @@ export function App(): JSX.Element {
     await captureRef.current?.stop();
     pendingSegmentsRef.current.clear();
     activeAnswerIdsRef.current.clear();
+    activeAnswerQuestionIdsRef.current.clear();
     retryingAnswerIdsRef.current.clear();
+    ignoredQuestionIdsRef.current.clear();
     speechEndedAtByQuestionIdRef.current.clear();
     firstAnswerTokenSeenRef.current.clear();
     setCaptureStatus('stopped');
@@ -401,7 +448,9 @@ export function App(): JSX.Element {
     pipelineRef.current?.stop();
     pendingSegmentsRef.current.clear();
     activeAnswerIdsRef.current.clear();
+    activeAnswerQuestionIdsRef.current.clear();
     retryingAnswerIdsRef.current.clear();
+    ignoredQuestionIdsRef.current.clear();
     speechEndedAtByQuestionIdRef.current.clear();
     firstAnswerTokenSeenRef.current.clear();
     void captureRef.current?.stop();
@@ -443,7 +492,7 @@ export function App(): JSX.Element {
         )}
       />
       <ErrorBanner message={state.error} />
-      <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} />
+      <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} onCancelQuestion={(questionId) => void cancelTranscript(questionId)} />
       {import.meta.env.DEV && (
         <details className="developer-tools">
           <summary>Developer tools</summary>

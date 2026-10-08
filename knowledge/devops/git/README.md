@@ -76,6 +76,21 @@
   credentials from approved identity or secret systems, and verify the revoked
   credential cannot authenticate.
 
+## Senior production lens
+
+- A senior Git workflow protects the delivery boundary: protected branches,
+  reviewed changes, required status checks, signed or otherwise traceable
+  release artifacts, and narrow permissions for humans and automation.
+- Decide between trunk-based development and release branches from release
+  cadence, compatibility, and support requirements; avoid long-lived branches
+  merely to postpone integration risk.
+- A revert should identify the exact deployed artifact and compatibility
+  boundary. Reverting source does not automatically reverse a database,
+  configuration, or externally visible data migration.
+- A committed secret is an exposure, even if history is rewritten. Revoke and
+  rotate it, audit possible use, remove it from future paths, then decide
+  whether history cleanup is warranted by the remaining risk.
+
 ## Concise interview delivery
 
 “Git gives us traceable commits and branches. I use merge or rebase according to

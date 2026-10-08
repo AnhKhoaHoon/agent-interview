@@ -27,18 +27,17 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .app-header {
   background: rgba(15, 23, 42, .8);
   border-bottom: 1px solid #26354d;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   padding: 8px 10px;
 }
 
-.header-main-row { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-height: 28px; width: 100%; }
-.app-identity { align-items: center; display: flex; gap: 7px; min-width: 0; overflow: hidden; }
+.header-main-row { align-items: center; display: flex; gap: 8px; min-height: 30px; width: 100%; }
+.app-identity { align-items: center; display: flex; flex: 0 1 auto; gap: 7px; min-width: 0; overflow: hidden; }
 .app-header h1 { color: #f8fafc; flex: 0 1 auto; font-size: 14px; letter-spacing: -.02em; line-height: 1.15; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-meta { align-items: center; display: flex; gap: 6px; min-width: 0; }
 .session-button { flex: 0 0 auto; }
-.header-controls { align-items: center; border-top: 1px solid #26354d; display: flex; gap: 7px; min-width: 0; padding-top: 6px; width: 100%; }
+.header-actions { align-items: center; display: flex; flex: 1 1 auto; gap: 7px; justify-content: flex-end; min-width: 0; }
+.header-controls { align-items: center; display: flex; flex: 1 1 auto; gap: 7px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.header-controls::-webkit-scrollbar { display: none; }
 .role-chip { background: #1e293b; border: 1px solid #334155; border-radius: 99px; color: #cbd5e1; font-size: 9px; font-weight: 700; padding: 3px 6px; }
 .header-status { align-items: center; color: #9fb0c7; display: inline-flex; font-size: 10px; font-weight: 750; gap: 5px; }
 
@@ -122,10 +121,23 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   background: transparent;
   border: 0;
   border-radius: 0;
-  flex: 1 1 auto;
+  display: flex;
+  flex: 0 0 auto;
+  grid-template-columns: none;
+  min-width: max-content;
   margin: 0;
   min-height: 32px;
   padding: 0;
+  position: relative;
+}
+
+.app-header .capture-help {
+  max-width: min(320px, calc(100vw - 20px));
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  width: 300px;
+  z-index: 10;
 }
 
 .capture-summary { align-items: center; display: flex; gap: 7px; min-width: 0; }
@@ -238,6 +250,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .chat-bubble .transcript-interpretation small { color: #7dd3fc; font-size: 9px; font-weight: 800; letter-spacing: .06em; margin-bottom: 3px; text-transform: uppercase; }
 .keywords { color: #86efac; font-size: 12px; font-weight: 600; margin-top: 10px; }
 .retry-button { background: transparent; border: 0; color: #bfdbfe; cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 10px; padding: 0; text-decoration: underline; }
+.cancel-question-button { color: #fda4af; margin-left: 14px; }
 
 .developer-tools {
   background: rgba(15, 23, 42, .9);
@@ -260,6 +273,10 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   .chat-window, .capture-diagnostics, .dev-question-form { padding-left: 10px; padding-right: 10px; }
   .conversation-panel { margin-left: 4px; margin-right: 4px; }
   .capture-controls { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+  .app-header h1 { display: none; }
+  .header-main-row { gap: 5px; }
+  .header-actions { gap: 5px; }
+  .header-controls { gap: 5px; }
   .transcription-language span { display: none; }
   .audio-meter-label { display: none; }
   .capture-actions .button { padding-left: 6px; padding-right: 6px; }

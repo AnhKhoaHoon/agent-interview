@@ -94,6 +94,21 @@
 - **Verify:** confirm the minimal change resolved impact, the exception did not
   widen unrelated access, and policy enforcement is restored.
 
+## Senior production lens
+
+- Treat an IaC plan as a change proposal with a finite validity period.
+  Recreate/review the plan when state, source, provider version, target, or
+  environment inputs change; do not apply a stale plan after an incident.
+- Production state is a critical dependency: separate ownership boundaries,
+  lock access, encrypt/version it, back it up where supported, and rehearse
+  recovery without exposing secrets or applying an unreviewed configuration.
+- Use policy as a guardrail with an exception process. An urgent change may
+  need a documented, time-bounded approval, but the resulting state must be
+  reconciled into reviewed code and policy afterwards.
+- For a destructive diff, pause. Explain the resource lifecycle, data
+  migration/backup, blast radius, rollout order, and restore verification
+  instead of treating a successful apply as a safe change.
+
 ## Concise interview delivery
 
 “IaC makes infrastructure reviewable and reproducible, but code alone is not

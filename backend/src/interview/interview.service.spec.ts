@@ -21,18 +21,37 @@ class FailingTestLlmProvider implements LlmProvider {
   }
 }
 
+class CancellableTestLlmProvider implements LlmProvider {
+  readonly name = 'cancellable-test-double';
+  aborted = false;
+
+  async *stream(_input: LlmGenerationInput, options?: { signal?: AbortSignal }): AsyncIterable<string> {
+    yield 'A partial answer ';
+    await new Promise<void>((resolve) => {
+      if (options?.signal?.aborted) return resolve();
+      options?.signal?.addEventListener('abort', () => resolve(), { once: true });
+    });
+    this.aborted = options?.signal?.aborted === true;
+    if (!this.aborted) yield 'that should not be emitted.';
+  }
+}
+
 describe('InterviewService integration', () => {
   let service: InterviewService;
   let streams: InterviewStreamService;
   let providerShouldFail: boolean;
+  let providerShouldWaitForCancellation: boolean;
+  let cancellableProvider: CancellableTestLlmProvider;
 
   beforeEach(async () => {
     providerShouldFail = false;
+    providerShouldWaitForCancellation = false;
     const successfulProvider = new DeterministicTestLlmProvider();
     const failingProvider = new FailingTestLlmProvider();
+    cancellableProvider = new CancellableTestLlmProvider();
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(LlmProviderFactory)
-      .useValue({ getConfiguredProvider: () => providerShouldFail ? failingProvider : successfulProvider })
+      .useValue({ getConfiguredProvider: () => providerShouldFail ? failingProvider : providerShouldWaitForCancellation ? cancellableProvider : successfulProvider })
       .overrideProvider(InterviewRepository)
       .useValue(new InMemoryInterviewRepository())
       .overrideProvider(DatabaseService)
@@ -221,5 +240,31 @@ describe('InterviewService integration', () => {
       expect.objectContaining({ id: question.id, role: 'interviewer' }),
       expect.objectContaining({ id: retry.answerMessageId, role: 'assistant', questionId: question.id, status: 'completed' })
     ]);
+  });
+
+  it('discards an incorrect transcript and aborts only its correlated answer stream', async () => {
+    providerShouldWaitForCancellation = true;
+    const interview = await service.create();
+    const events: InterviewStreamEvent[] = [];
+    const started = new Promise<void>((resolve) => {
+      streams.open(interview.id).subscribe((event) => {
+        events.push(event);
+        if (event.type === 'answer.started') resolve();
+      });
+    });
+
+    const question = await service.recordTranscript(interview.id, 'Incorrectly recognized question');
+    await started;
+    await expect(service.cancelQuestion(interview.id, question.id)).resolves.toEqual({
+      questionId: question.id, cancelled: true
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(cancellableProvider.aborted).toBe(true);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'question.cancelled', data: expect.objectContaining({ questionId: question.id }) })
+    ]));
+    expect(events.filter((event) => event.type === 'answer.completed' || event.type === 'answer.error')).toHaveLength(0);
+    await expect(service.listMessages(interview.id)).resolves.toEqual([]);
   });
 });

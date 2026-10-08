@@ -55,6 +55,17 @@ export class InterviewController {
     return this.interviews.retryAnswer(id, questionId);
   }
 
+  @Post(':id/questions/:questionId/cancel')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Discard an incorrect interviewer transcript and stop its answer stream' })
+  @ApiResponse({ status: 201, description: 'The transcript and any correlated answer were discarded.' })
+  cancelQuestion(
+    @Param('id') id: string,
+    @Param('questionId') questionId: string
+  ): ReturnType<InterviewService['cancelQuestion']> {
+    return this.interviews.cancelQuestion(id, questionId);
+  }
+
   @Sse(':id/events')
   @ApiBearerAuth()
   @Header('X-Accel-Buffering', 'no')

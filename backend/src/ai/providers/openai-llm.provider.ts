@@ -6,7 +6,7 @@ import { LlmGenerationInput, LlmProvider } from '../contracts';
 export class OpenAiLlmProvider implements LlmProvider {
   readonly name = 'openai';
 
-  async *stream(input: LlmGenerationInput): AsyncIterable<string> {
+  async *stream(input: LlmGenerationInput, options?: { signal?: AbortSignal }): AsyncIterable<string> {
     const apiKey = process.env.LLM_API_KEY;
     const model = process.env.LLM_MODEL;
     if (!apiKey || !model) {
@@ -24,7 +24,7 @@ export class OpenAiLlmProvider implements LlmProvider {
       input: input.input,
       stream: true,
       store: false
-    });
+    }, { signal: options?.signal });
 
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') yield event.delta;

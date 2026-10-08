@@ -83,5 +83,5 @@ export interface LlmGenerationInput {
 
 export interface LlmProvider {
   readonly name: string;
-  stream(input: LlmGenerationInput): AsyncIterable<string>;
+  stream(input: LlmGenerationInput, options?: { signal?: AbortSignal }): AsyncIterable<string>;
 }

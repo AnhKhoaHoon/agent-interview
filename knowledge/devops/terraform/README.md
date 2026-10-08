@@ -84,6 +84,23 @@
 - **Verify:** review a saved production plan and post-apply service/state health;
   do not merge a lock-file update whose plan was not examined.
 
+## Senior production lens
+
+- A Terraform backend is a production control plane dependency. Design remote
+  state access, locking, encryption, version recovery, audit, and ownership so
+  independent teams cannot accidentally apply to the same state boundary.
+- Pin and upgrade Terraform, providers, and modules deliberately. Test upgrades
+  against representative state and inspect all plan changes; provider upgrades
+  can alter defaults and create replacements even when configuration is
+  unchanged.
+- Model destructive or stateful changes as migrations: understand dependencies,
+  use moved/import/refactoring mechanisms where appropriate, preserve data,
+  sequence compatible application changes, and verify a clean follow-up plan.
+- A drift response begins by determining whether reality or configuration is
+  correct. Reconcile through reviewed code and a scoped plan; do not normalize
+  refresh-only, direct console edits, or targeted apply as routine production
+  repair.
+
 ## Concise interview delivery
 
 “Terraform state maps configuration to real objects, so I protect it with a

@@ -116,6 +116,23 @@ POST `/interviews/:id/questions/:questionId/answer/retry`
 Retries only a failed answer. It retains the same assistant `messageId` and
 streams the retry over the existing SSE connection.
 
+POST `/interviews/:id/questions/:questionId/cancel`
+
+Discards a recognized but incorrect interviewer transcript. The backend aborts
+its active LLM stream where supported, deletes that interviewer message and its
+correlated assistant message/transcription metadata, then publishes
+`question.cancelled`. This endpoint is scoped to the interview bearer token
+and affects only the supplied `questionId`; overlapping turns continue.
+
+Response:
+
+```json
+{
+  "questionId": "uuid",
+  "cancelled": true
+}
+```
+
 ## Candidate profile and job description
 
 GET `/interviews/:id/context`
@@ -179,6 +196,7 @@ Event types:
 session.ready
 question.transcribing
 question.transcribed
+question.cancelled
 answer.started
 answer.token
 answer.keywords
@@ -205,6 +223,11 @@ data: {"messageId":"a1","questionId":"q1","firstTokenMs":820,"totalMs":2150,"spe
 
 `answer.error` also includes both IDs and `retryable`, allowing the Side Panel
 to preserve the interviewer transcript and expose **Retry answer**.
+
+The Side Panel provides two distinct cancellation points: **Cancel** during
+speech detection discards local audio before STT upload; **Cancel question** on
+a final transcript calls the endpoint above, removes that question/answer pair,
+and ignores any late correlated SSE token.
 
 For overlapping turns, clients must treat `{ messageId, questionId }` as the
 answer-stream correlation key. A token with either value not matching the

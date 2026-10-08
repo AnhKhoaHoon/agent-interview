@@ -70,6 +70,21 @@
   target or canary, then verify the actual service. Treat check mode as one
   control, not proof of safe execution.
 
+## Senior production lens
+
+- Treat fleet automation as a change-management system: define rings or canary
+  batches, an error threshold, a stop condition, ownership, and the
+  rollback/remediation path before changing a broad inventory.
+- Inventory is security-sensitive production data. Separate environments,
+  restrict dynamic-inventory credentials, use least privilege for escalation,
+  and make the controller/runner disposable and auditable.
+- Test idempotence and convergence against representative hosts; check mode is
+  useful evidence but cannot prove commands, templates, handlers, external
+  APIs, or reboot behavior are safe in production.
+- For a failed partial rollout, preserve the changed-host list and facts, halt
+  the next batch, restore only the verified bad configuration, then verify both
+  service SLI and desired configuration drift.
+
 ## Concise interview delivery
 
 “I make playbooks idempotent with purpose-built modules, validate them in check

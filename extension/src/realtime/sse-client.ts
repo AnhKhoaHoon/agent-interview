@@ -1,7 +1,7 @@
 import type { InterviewEvent, InterviewEventName } from '../types/events';
 
 const eventNames = new Set<InterviewEventName>([
-  'session.ready', 'question.transcribing', 'question.transcribed', 'answer.started',
+  'session.ready', 'question.transcribing', 'question.transcribed', 'question.cancelled', 'answer.started',
   'answer.token', 'answer.keywords', 'answer.completed', 'answer.error', 'session.error'
 ]);
 

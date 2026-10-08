@@ -58,7 +58,41 @@ describe('PromptBuilderService', () => {
 
     expect(prompt.instructions).toContain('Microsoft Entra identity/authentication');
     expect(prompt.instructions).toContain('Azure RBAC authorization');
+    expect(prompt.instructions).toContain('pipeline ARM workload-identity-federated service connection');
+    expect(prompt.instructions).toContain('immutable image digest');
     expect(prompt.instructions).toContain('do not substitute AWS service names');
+  });
+
+  it('adds production trade-off guidance only for a senior Azure applied question', () => {
+    const classification = {
+      role: 'devops' as const, category: 'azure', type: 'architecture' as const,
+      level: 'senior' as const, intent: 'Design a production AKS platform', responseMode: 'technical_architecture' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'How would you design a production AKS platform?', classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.instructions).toContain('availability/RTO/RPO');
+    expect(prompt.instructions).toContain('backup is not high availability');
+    expect(prompt.instructions).toContain('Do not claim active-active, zero data loss, or zero downtime');
+    expect(prompt.instructions).toContain('State blast radius, choose a reversible mitigation');
+  });
+
+  it.each([
+    ['gcp', 'How would you alert on a GKE service SLO?', 'IAM authorization, VPC/network reachability', 'user-visible SLI'],
+    ['microservices', 'How would you handle duplicate order events?', 'at-least-once delivery', 'idempotency'],
+    ['devsecops', 'How would you secure the software supply chain?', 'passed scanner is not proof', 'short-lived, scoped workload identity']
+  ])('adds precise %s guardrails', (category, question, firstExpected, secondExpected) => {
+    const classification = {
+      role: 'devops' as const, category, type: 'scenario' as const,
+      level: 'senior' as const, intent: question, responseMode: 'technical_scenario' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question, classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.instructions).toContain(firstExpected);
+    expect(prompt.instructions).toContain(secondExpected);
   });
 
   it('grounds a response only with retrieved knowledge and never exposes retrieval to the candidate', () => {

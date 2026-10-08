@@ -22,6 +22,10 @@ V1 default:
 - Docker Compose
 - Kubernetes
 - AWS
+- Azure
+- GCP
+- Microservices
+- DevSecOps
 - Infrastructure as Code
 - Terraform
 - Ansible
@@ -65,6 +69,13 @@ Answers must be calibrated to the requested level:
 
 This calibration changes the depth of technical reasoning, not the truthfulness policy. Do not invent production experience at any level.
 
+For a senior applied answer, begin from the relevant production constraint
+(availability/SLO, RTO/RPO, security boundary, capacity, or cost), identify
+blast radius, choose a reversible mitigation before a broad change, and name a
+material trade-off. Tie delivery answers to an immutable version and a rollback
+or recovery decision. Do not claim zero downtime, active-active, or zero data
+loss unless the stated design and data-consistency trade-off support it.
+
 ## Definition example structure
 
 1. What it is
@@ -76,6 +87,12 @@ checklist to a definition answer. For Docker, distinguish an image from a
 running container; image tags are mutable references even when a release uses
 an immutable digest. If the interviewer asks only “Docker là gì?”, do not
 introduce CI/CD, registries, Kubernetes, or deployment workflows.
+
+For a direct Azure definition, keep the answer on the named Azure service or
+concept. For an Azure CI/CD scenario, distinguish the Azure Pipeline deployment
+identity, AKS/ACR image-pull identity, and runtime workload identity when those
+boundaries are relevant; use the same immutable artifact across environments
+and name one meaningful post-deployment verification signal.
 
 ## Comparison structure
 

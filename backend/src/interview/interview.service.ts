@@ -18,6 +18,8 @@ import { Interview, InterviewMessage } from './interview.types';
 @Injectable()
 export class InterviewService {
   private readonly logger = new Logger(InterviewService.name);
+  private readonly activeGenerations = new Map<string, { interviewId: string; questionId: string; controller: AbortController }>();
+  private readonly cancelledQuestionIds = new Set<string>();
 
   constructor(
     private readonly streams: InterviewStreamService,
@@ -116,6 +118,30 @@ export class InterviewService {
     return { questionId, answerMessageId: restarted.id, accepted: true };
   }
 
+  async cancelQuestion(
+    id: string,
+    questionId: string
+  ): Promise<{ questionId: string; cancelled: true }> {
+    const interview = await this.requireInterview(id);
+    if (interview.status !== 'active') throw new ConflictException('Interview session is not active');
+    const question = interview.messages.find((message) => message.id === questionId && message.role === 'interviewer');
+    if (!question) throw new NotFoundException('Interviewer question not found');
+    const answer = this.answerForQuestion(interview, question.id);
+    this.cancelledQuestionIds.add(questionId);
+    if (answer) this.activeGenerations.get(answer.id)?.controller.abort();
+    const deleted = await this.repository.deleteQuestion(id, questionId);
+    if (!deleted) throw new NotFoundException('Interviewer question not found');
+    this.streams.emit(id, {
+      type: 'question.cancelled',
+      data: { questionId, ...(answer ? { answerMessageId: answer.id } : {}) }
+    });
+    this.logger.log(JSON.stringify({
+      event: 'question.cancelled', interviewId: id, questionId,
+      ...(answer ? { answerMessageId: answer.id } : {})
+    }));
+    return { questionId, cancelled: true };
+  }
+
   private async startAnswerGeneration(
     interview: Interview,
     question: InterviewMessage,
@@ -130,9 +156,18 @@ export class InterviewService {
     } else {
       answer = await this.addMessage(interview, 'assistant', '', 'streaming', { questionId: question.id });
     }
-    void this.generateAnswer(interview, question, answer, answerLanguage).catch((error: unknown) =>
-      this.handleGenerationFailure(interview.id, question.id, answer, error)
-    );
+    const controller = new AbortController();
+    this.activeGenerations.set(answer.id, { interviewId: interview.id, questionId: question.id, controller });
+    void this.generateAnswer(interview, question, answer, answerLanguage, controller.signal)
+      .catch((error: unknown) => {
+        if (!this.cancelledQuestionIds.has(question.id)) {
+          return this.handleGenerationFailure(interview.id, question.id, answer, error);
+        }
+      })
+      .finally(() => {
+        this.activeGenerations.delete(answer.id);
+        this.cancelledQuestionIds.delete(question.id);
+      });
     return answer;
   }
 
@@ -140,8 +175,10 @@ export class InterviewService {
     interview: Interview,
     question: InterviewMessage,
     answer: InterviewMessage,
-    answerLanguage?: InterviewLanguage
+    answerLanguage?: InterviewLanguage,
+    signal?: AbortSignal
   ): Promise<void> {
+    this.throwIfQuestionCancelled(question.id);
     const startedAt = Date.now();
     const persistedContext = await this.repository.findAnswerContext(answer.id);
     const history = persistedContext ?? this.contextBuilder.build(
@@ -153,6 +190,7 @@ export class InterviewService {
     const { classification } = assessment;
     const plan = this.answerPlanner.plan(classification);
     const knowledge = await this.knowledge.retrieve(assessment.normalizedQuestion, classification.category);
+    this.throwIfQuestionCancelled(question.id);
     const candidateContext = await this.candidateContext.promptContext(interview.id);
     const provider = this.providers.getConfiguredProvider();
     await this.repository.startAiResponse({
@@ -179,7 +217,8 @@ export class InterviewService {
     let speechEndToFirstAnswerMs: number | undefined;
 
     this.streams.emit(interview.id, { type: 'answer.started', data: { messageId: answer.id, questionId: question.id } });
-    for await (const token of provider.stream(prompt)) {
+    for await (const token of provider.stream(prompt, { signal })) {
+      this.throwIfQuestionCancelled(question.id);
       if (firstTokenMs === undefined) {
         firstTokenMs = Date.now() - startedAt;
         speechEndToFirstAnswerMs = question.speechEndedAtMs ? Date.now() - question.speechEndedAtMs : undefined;
@@ -195,6 +234,7 @@ export class InterviewService {
       });
     }
 
+    this.throwIfQuestionCancelled(question.id);
     const validation = this.quality.evaluate(answer.content, classification, plan);
     if (validation.warnings?.length) {
       this.logger.warn(JSON.stringify({
@@ -247,6 +287,10 @@ export class InterviewService {
       data: { messageId: answer.id, questionId, code: 'LLM_GENERATION_FAILED', message, retryable: true, requestId: randomUUID() }
     });
     this.logger.error(JSON.stringify({ event: 'answer.error', interviewId, questionId, answerMessageId: answer.id, error: message }));
+  }
+
+  private throwIfQuestionCancelled(questionId: string): void {
+    if (this.cancelledQuestionIds.has(questionId)) throw new Error('Question cancelled');
   }
 
   private answerForQuestion(interview: Interview, questionId: string): InterviewMessage | undefined {

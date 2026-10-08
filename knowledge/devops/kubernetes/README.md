@@ -77,6 +77,23 @@
 - **Verify:** run controlled load and observe metric movement, desired/actual
   replicas, scheduling, latency, errors, and scale-down stability.
 
+## Senior production lens
+
+- Separate cluster/platform reliability from workload reliability. A healthy
+  control plane does not prove Pods have capacity, correct probes, safe
+  disruption budgets, working dependencies, or a user-facing SLO.
+- For critical workloads, define replicas, topology spread, PDBs, requests and
+  limits, autoscaling bounds, quota, node-pool capacity, and upgrade surge
+  before the rollout window. Validate these choices with controlled failure and
+  load exercises.
+- Treat a namespace as an organizational boundary, not a complete security
+  boundary. Combine Kubernetes RBAC, workload identity, network policy, pod
+  security controls, resource quotas, and separate clusters/accounts when the
+  risk boundary requires it.
+- A production rollback uses a known-good revision and validates endpoints plus
+  SLI. It must also consider compatible schema, queue, and configuration
+  changes; a Deployment rollback alone is not a complete recovery strategy.
+
 ## Concise interview delivery
 
 “I begin with Pod status, events, previous logs, and the desired spec, then

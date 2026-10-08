@@ -124,6 +124,14 @@ export class PostgresInterviewRepository extends InterviewRepository {
     );
   }
 
+  async deleteQuestion(interviewId: string, questionId: string): Promise<boolean> {
+    const result = await this.database.query(
+      'DELETE FROM messages WHERE id = $1 AND interview_id = $2 AND role = \'interviewer\'',
+      [questionId, interviewId]
+    );
+    return result.rowCount === 1;
+  }
+
   async findTranscriptionBySegment(interviewId: string, segmentId: string): Promise<PersistedTranscription | undefined> {
     const result = await this.database.query<{
       message_id: string;
