@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { InterviewRole } from '../../roles/interview-role';
 
 const LEADING_FILLER = /^(?:(?:um+|uh+|erm+|you know)[,\s]*)+/i;
 
@@ -18,6 +19,15 @@ const TECHNICAL_TERM_ALIASES: ReadonlyArray<{ pattern: RegExp; canonical: string
   { pattern: /\bazure\s+landing\s+page\b/giu, canonical: 'Azure Landing Zone' }
 ];
 
+const DBA_TERM_ALIASES: ReadonlyArray<{ pattern: RegExp; canonical: string }> = [
+  { pattern: /\bpost\s*(?:grass|gres|gre|gresh)\b/giu, canonical: 'PostgreSQL' },
+  { pattern: /\bmy\s*sequel\b/giu, canonical: 'MySQL' },
+  { pattern: /\bsql\s*server\b/giu, canonical: 'SQL Server' },
+  { pattern: /\bexplain(?:ed)?\s+analyze\b/giu, canonical: 'EXPLAIN ANALYZE' },
+  { pattern: /\bauto\s*vacuum\b/giu, canonical: 'autovacuum' },
+  { pattern: /\bpoint\s+in\s+time\s+recovery\b/giu, canonical: 'point-in-time recovery' }
+];
+
 export interface TranscriptInterpretation {
   text: string;
   corrections: Array<{ heard: string; interpretedAs: string }>;
@@ -25,14 +35,15 @@ export interface TranscriptInterpretation {
 
 @Injectable()
 export class TranscriptNormalizerService {
-  normalize(transcript: string): string {
-    return this.interpret(transcript).text;
+  normalize(transcript: string, role: InterviewRole = 'devops'): string {
+    return this.interpret(transcript, role).text;
   }
 
-  interpret(transcript: string): TranscriptInterpretation {
+  interpret(transcript: string, role: InterviewRole = 'devops'): TranscriptInterpretation {
     let text = transcript.replace(/\s+/g, ' ').trim().replace(LEADING_FILLER, '').trim();
     const corrections: TranscriptInterpretation['corrections'] = [];
-    for (const alias of TECHNICAL_TERM_ALIASES) {
+    const aliases = role === 'dba' ? DBA_TERM_ALIASES : TECHNICAL_TERM_ALIASES;
+    for (const alias of aliases) {
       text = text.replace(alias.pattern, (heard: string) => {
         corrections.push({ heard, interpretedAs: alias.canonical });
         return alias.canonical;

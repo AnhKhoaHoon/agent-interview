@@ -1,0 +1,124 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - knowledge/**
+      - docker-compose.server.yml
+      - .github/workflows/deploy-backend.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  verify:
+    name: Verify backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install, lint, test, and build
+        working-directory: backend
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+
+  publish:
+    name: Publish immutable backend image
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "name=${REGISTRY}/${REPOSITORY,,}/backend" >> "$GITHUB_OUTPUT"
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login "$REGISTRY" --username "${{ github.actor }}" --password-stdin
+      - name: Build and publish image
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          docker build --pull \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "$IMAGE:${GITHUB_SHA}" \
+            --tag "$IMAGE:main" \
+            --file backend/Dockerfile .
+          docker push "$IMAGE:${GITHUB_SHA}"
+          docker push "$IMAGE:main"
+
+  deploy:
+    name: Deploy backend to server
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Check out deployment manifest
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload Compose manifest and deploy immutable image
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          case "$DEPLOY_PATH" in /*) ;; *) echo "DEPLOY_PATH must be an absolute path" >&2; exit 1;; esac
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          image="$IMAGE:$GITHUB_SHA"
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes docker-compose.server.yml "$target:$DEPLOY_PATH/docker-compose.server.yml"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "$target" "cd -- '$DEPLOY_PATH' && test -f .env.server && BACKEND_IMAGE='$image' docker compose --env-file .env.server -f docker-compose.server.yml pull backend && BACKEND_IMAGE='$image' docker compose --env-file .env.server -f docker-compose.server.yml up -d --no-build --remove-orphans"
+      - name: Verify readiness and refresh approved knowledge
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          set -eu
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          image="$IMAGE:$GITHUB_SHA"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "$target" "cd -- '$DEPLOY_PATH' && for attempt in \$(seq 1 24); do BACKEND_IMAGE='$image' docker compose --env-file .env.server -f docker-compose.server.yml exec -T backend node -e \"fetch('http://localhost:3000/api/v1/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\" && break; test \$attempt -eq 24 && BACKEND_IMAGE='$image' docker compose --env-file .env.server -f docker-compose.server.yml logs --tail=100 backend && exit 1; sleep 5; done && BACKEND_IMAGE='$image' docker compose --env-file .env.server -f docker-compose.server.yml exec -T backend npm run knowledge:index"

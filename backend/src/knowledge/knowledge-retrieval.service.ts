@@ -1,27 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EmbeddingProviderFactory } from './embedding-provider.factory';
 import { KnowledgeRepository, RetrievedKnowledgeChunk } from './knowledge.repository';
+import { InterviewRole } from '../roles/interview-role';
 
 export interface KnowledgeContext { chunks: RetrievedKnowledgeChunk[]; }
 
-const RELATED_KNOWLEDGE_CATEGORIES: Record<string, string[]> = {
-  'docker-compose': ['docker'],
-  iac: ['terraform', 'ansible', 'aws', 'azure'],
-  azure: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd'],
-  gcp: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd', 'microservices', 'devsecops'],
-  microservices: ['networking', 'observability', 'security', 'cicd', 'kubernetes'],
-  devsecops: ['security', 'cicd', 'git', 'docker', 'iac', 'kubernetes', 'gcp', 'aws', 'azure'],
-  jenkins: ['cicd'],
-  'gitlab-ci': ['cicd'],
-  argocd: ['cicd'],
-  prometheus: ['observability'],
-  grafana: ['observability'],
-  logging: ['observability'],
-  observability: ['microservices', 'gcp'],
-  security: ['devsecops'],
-  cicd: ['devsecops'],
-  'system-design': ['aws', 'azure', 'gcp', 'kubernetes', 'microservices', 'networking', 'observability'],
-  troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'terraform', 'cicd', 'observability', 'microservices', 'devsecops', 'security']
+const RELATED_KNOWLEDGE_CATEGORIES: Record<InterviewRole, Record<string, string[]>> = {
+  devops: {
+    'docker-compose': ['docker'],
+    iac: ['terraform', 'ansible', 'aws', 'azure'],
+    azure: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd'],
+    gcp: ['kubernetes', 'networking', 'observability', 'security', 'iac', 'cicd', 'microservices', 'devsecops'],
+    microservices: ['networking', 'observability', 'security', 'cicd', 'kubernetes'],
+    devsecops: ['security', 'cicd', 'git', 'docker', 'iac', 'kubernetes', 'gcp', 'aws', 'azure'],
+    jenkins: ['cicd'], 'gitlab-ci': ['cicd'], argocd: ['cicd'], prometheus: ['observability'],
+    grafana: ['observability'], logging: ['observability'], observability: ['microservices', 'gcp'],
+    security: ['devsecops'], cicd: ['devsecops'],
+    'system-design': ['aws', 'azure', 'gcp', 'kubernetes', 'microservices', 'networking', 'observability'],
+    troubleshooting: ['linux', 'networking', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'terraform', 'cicd', 'observability', 'microservices', 'devsecops', 'security']
+  },
+  dba: {
+    'db2-luw': ['backup-recovery', 'replication-ha', 'performance', 'database-security', 'troubleshooting'],
+    postgresql: ['backup-recovery', 'replication-ha', 'performance', 'database-security'],
+    mysql: ['backup-recovery', 'replication-ha', 'performance', 'database-security'],
+    'sql-server': ['backup-recovery', 'replication-ha', 'performance', 'database-security'],
+    oracle: ['backup-recovery', 'replication-ha', 'performance', 'database-security'],
+    'backup-recovery': ['db2-luw', 'postgresql', 'mysql', 'sql-server', 'oracle', 'replication-ha'],
+    'replication-ha': ['db2-luw', 'postgresql', 'mysql', 'sql-server', 'oracle', 'backup-recovery'],
+    performance: ['db2-luw', 'postgresql', 'mysql', 'sql-server', 'oracle', 'troubleshooting'],
+    'database-security': ['db2-luw', 'postgresql', 'mysql', 'sql-server', 'oracle'],
+    troubleshooting: ['db2-luw', 'postgresql', 'mysql', 'sql-server', 'oracle', 'performance', 'replication-ha', 'backup-recovery']
+  }
 };
 
 const KEYWORD_STOP_WORDS = new Set([
@@ -39,18 +48,18 @@ export class KnowledgeRetrievalService {
   private readonly logger = new Logger(KnowledgeRetrievalService.name);
   constructor(private readonly embeddings: EmbeddingProviderFactory, private readonly repository: KnowledgeRepository) {}
 
-  async retrieve(question: string, category: string): Promise<KnowledgeContext | undefined> {
+  async retrieve(question: string, role: InterviewRole, category: string): Promise<KnowledgeContext | undefined> {
     if (process.env.RAG_ENABLED === 'false') return undefined;
     try {
       const [embedding] = await this.embeddings.getConfiguredProvider().embed([question]);
       if (!embedding) return undefined;
-      const acceptedCategories = [...new Set([category, ...(RELATED_KNOWLEDGE_CATEGORIES[category] ?? [])])];
+      const acceptedCategories = [...new Set([category, ...(RELATED_KNOWLEDGE_CATEGORIES[role][category] ?? [])])];
       const maxChunks = Number(process.env.RAG_MAX_CHUNKS ?? 4);
       const candidateLimit = Math.max(maxChunks * 3, maxChunks);
       const terms = retrievalTerms(question);
       const [semanticCandidates, keywordCandidates] = await Promise.all([
-        this.repository.semanticSearch(embedding, acceptedCategories, candidateLimit),
-        this.repository.keywordSearch(terms, acceptedCategories, candidateLimit)
+        this.repository.semanticSearch(role, embedding, acceptedCategories, candidateLimit),
+        this.repository.keywordSearch(role, terms, acceptedCategories, candidateLimit)
       ]);
       const minimum = Number(process.env.RAG_MIN_SIMILARITY ?? 0.72);
       const minimumKeywordCoverage = Number(process.env.RAG_MIN_KEYWORD_COVERAGE ?? 0.35);
@@ -79,18 +88,18 @@ export class KnowledgeRetrievalService {
 
       if (!chunks.length) {
         this.logger.log(JSON.stringify({
-          event: 'rag.fallback', category, acceptedCategories, semanticCandidateCount: semanticCandidates.length,
+          event: 'rag.fallback', role, category, acceptedCategories, semanticCandidateCount: semanticCandidates.length,
           keywordCandidateCount: keywordCandidates.length, reason: 'below_threshold_or_topic_mismatch'
         }));
         return undefined;
       }
       this.logger.log(JSON.stringify({
-        event: 'rag.retrieved', category, retrieval: 'hybrid', chunkCount: chunks.length, topScore: chunks[0]?.score,
+        event: 'rag.retrieved', role, category, retrieval: 'hybrid', chunkCount: chunks.length, topScore: chunks[0]?.score,
         semanticCandidateCount: semanticCandidates.length, keywordCandidateCount: keywordCandidates.length
       }));
       return { chunks };
     } catch (error) {
-      this.logger.warn(JSON.stringify({ event: 'rag.fallback', category, reason: 'unavailable', error: error instanceof Error ? error.message : 'unknown' }));
+      this.logger.warn(JSON.stringify({ event: 'rag.fallback', role, category, reason: 'unavailable', error: error instanceof Error ? error.message : 'unknown' }));
       return undefined;
     }
   }

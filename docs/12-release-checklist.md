@@ -39,10 +39,15 @@ review, real-provider quality, or live SLOs for a deployment.
 - [ ] pgvector migration applied when RAG is enabled
 - [ ] knowledge index run after the approved knowledge revision
 - [ ] candidate profile/JD retention reviewed for the local user
+- [ ] CI verifies lint, tests, and build before deployment
+- [ ] deployment environment restricts branch access and protects SSH secrets
+- [ ] server pulls an immutable image digest or commit-SHA tag, not a mutable tag
+- [ ] server readiness and knowledge-index outcome are verified after deployment
 
 ## AI
 
-- [ ] DevOps role prompt versioned
+- [ ] each enabled role prompt versioned and tested
+- [ ] role selector is locked after session creation and role-scoped RAG is verified
 - [ ] classifier tested
 - [ ] conversation context bounded
 - [ ] no invented candidate experience

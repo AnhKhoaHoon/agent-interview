@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adaptiveSpeechThreshold, nextNoiseFloor, shouldUpdateNoiseFloor } from './vad-pipeline';
+import { adaptiveSpeechThreshold, initialNoiseFloor, nextNoiseFloor, shouldUpdateNoiseFloor } from './vad-pipeline';
 import { DEFAULT_VAD_CONFIGURATION } from './vad-config';
 
 describe('adaptiveSpeechThreshold', () => {
@@ -24,5 +24,18 @@ describe('adaptiveSpeechThreshold', () => {
 
   it('continues adapting from confirmed quiet samples', () => {
     expect(nextNoiseFloor(0.01, 0.002, DEFAULT_VAD_CONFIGURATION)).toBeCloseTo(0.00936);
+  });
+
+  it('calibrates a steady Meet audio bed above the initial minimum', () => {
+    const floor = initialNoiseFloor([0.005, 0.0052, 0.0048, 0.0051, 0.005], DEFAULT_VAD_CONFIGURATION);
+
+    expect(floor).toBeCloseTo(0.005);
+    expect(adaptiveSpeechThreshold(floor, DEFAULT_VAD_CONFIGURATION)).toBeCloseTo(0.0085);
+  });
+
+  it('does not classify an interviewer already speaking as background noise', () => {
+    const floor = initialNoiseFloor([0.003, 0.008, 0.014, 0.006, 0.018, 0.004], DEFAULT_VAD_CONFIGURATION);
+
+    expect(floor).toBe(DEFAULT_VAD_CONFIGURATION.initialNoiseFloor);
   });
 });

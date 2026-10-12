@@ -1,3 +1,5 @@
+import { InterviewRole } from '../roles/interview-role';
+
 export type QuestionType =
   | 'definition'
   | 'comparison'
@@ -19,9 +21,17 @@ export type ResponseMode =
   | 'clarification';
 
 export type InterviewLanguage = 'vi' | 'en';
+export type LlmReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+export type LlmVerbosity = 'low' | 'medium' | 'high';
+
+export interface LlmResponseControls {
+  reasoningEffort?: LlmReasoningEffort;
+  maxOutputTokens?: number;
+  verbosity?: LlmVerbosity;
+}
 
 export interface Classification {
-  role: 'devops';
+  role: InterviewRole;
   category: string;
   type: QuestionType;
   level: 'junior' | 'middle' | 'senior';
@@ -51,7 +61,7 @@ export interface InterviewQuestionAssessment {
 }
 
 export interface InterviewAnswerPlan {
-  promptVersion: 'devops-interview-answer-v3';
+  promptVersion: string;
   responseMode: ResponseMode;
   opening: string;
   deliverySteps: string[];
@@ -79,6 +89,9 @@ export interface PromptInput {
 export interface LlmGenerationInput {
   instructions: string;
   input: string;
+  model?: string;
+  promptCacheKey?: string;
+  responseControls?: LlmResponseControls;
 }
 
 export interface LlmProvider {

@@ -37,7 +37,10 @@ export class VadPipeline {
   private activeSegment?: ActiveSegment;
   private preRollChunks: TimedPcmChunk[] = [];
   private finalizing = false;
-  private noiseFloor = 0.001;
+  private noiseFloor: number;
+  private calibrationStartedAtMs?: number;
+  private calibrationLevels: number[] = [];
+  private calibrationComplete = false;
   private lastLevelUpdateMs = 0;
 
   constructor(
@@ -46,6 +49,7 @@ export class VadPipeline {
     private readonly configuration: VadConfiguration = DEFAULT_VAD_CONFIGURATION
   ) {
     this.segmenter = new UtteranceSegmenter(configuration);
+    this.noiseFloor = configuration.initialNoiseFloor;
   }
 
   async start(): Promise<void> {
@@ -54,6 +58,9 @@ export class VadPipeline {
     this.analyser = this.capture.createAnalyser();
     this.sampleBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
     this.pcmTap = await this.capture.createPcmTap(this.handlePcmSamples);
+    this.calibrationStartedAtMs = performance.now();
+    this.calibrationLevels = [];
+    this.calibrationComplete = false;
     this.callbacks.onStateChange('listening');
     this.intervalId = window.setInterval(() => this.sample(), this.configuration.analysisIntervalMs);
   }
@@ -69,7 +76,10 @@ export class VadPipeline {
     this.activeSegment = undefined;
     this.preRollChunks = [];
     this.finalizing = false;
-    this.noiseFloor = 0.001;
+    this.noiseFloor = this.configuration.initialNoiseFloor;
+    this.calibrationStartedAtMs = undefined;
+    this.calibrationLevels = [];
+    this.calibrationComplete = false;
     this.lastLevelUpdateMs = 0;
     this.segmenter.reset();
   }
@@ -92,18 +102,32 @@ export class VadPipeline {
     if (!this.analyser || !this.sampleBuffer) return;
     this.analyser.getByteTimeDomainData(this.sampleBuffer);
     const level = this.rms(this.sampleBuffer);
+    const nowMs = performance.now();
+    if (!this.calibrationComplete) {
+      this.calibrationLevels.push(level);
+      const calibrationStartedAtMs = this.calibrationStartedAtMs ?? nowMs;
+      if (nowMs - calibrationStartedAtMs < this.configuration.initialCalibrationMs) {
+        this.notifyAudioLevel(level, adaptiveSpeechThreshold(this.noiseFloor, this.configuration), nowMs);
+        return;
+      }
+      this.noiseFloor = initialNoiseFloor(this.calibrationLevels, this.configuration);
+      this.calibrationComplete = true;
+    }
+
     const thresholdBeforeUpdate = adaptiveSpeechThreshold(this.noiseFloor, this.configuration);
     // Do not learn a speech candidate as the noise floor. The previous logic
     // raised the threshold above a quiet, steady voice before the 300ms speech
     // minimum elapsed, so no utterance was ever created for STT.
     if (shouldUpdateNoiseFloor(level, thresholdBeforeUpdate)) this.noiseFloor = nextNoiseFloor(this.noiseFloor, level, this.configuration);
     const threshold = adaptiveSpeechThreshold(this.noiseFloor, this.configuration);
-    const nowMs = performance.now();
-    if (nowMs - this.lastLevelUpdateMs >= 100) {
-      this.lastLevelUpdateMs = nowMs;
-      this.callbacks.onAudioLevel(level, threshold);
-    }
+    this.notifyAudioLevel(level, threshold, nowMs);
     this.handleEvents(this.segmenter.observe(level >= threshold, nowMs));
+  }
+
+  private notifyAudioLevel(level: number, threshold: number, nowMs: number): void {
+    if (nowMs - this.lastLevelUpdateMs < 100) return;
+    this.lastLevelUpdateMs = nowMs;
+    this.callbacks.onAudioLevel(level, threshold);
   }
 
   private handleEvents(events: SegmenterEvent[]): void {
@@ -178,4 +202,26 @@ export function nextNoiseFloor(noiseFloor: number, level: number, configuration:
 
 export function shouldUpdateNoiseFloor(level: number, threshold: number): boolean {
   return level < threshold;
+}
+
+/**
+ * Uses a low percentile instead of a mean so short speech peaks during capture
+ * start do not become the tab's noise floor. If the first window itself looks
+ * like speech, retain the conservative initial floor; pre-roll preserves it.
+ */
+export function initialNoiseFloor(levels: number[], configuration: VadConfiguration): number {
+  if (!levels.length) return configuration.initialNoiseFloor;
+  const ordered = [...levels].sort((left, right) => left - right);
+  const floor = percentile(ordered, 0.2);
+  const high = percentile(ordered, 0.9);
+  const looksLikeSpeech = high >= Math.max(
+    floor * configuration.calibrationSpeechDynamicRange,
+    configuration.rmsThreshold * configuration.calibrationSpeechDynamicRange
+  );
+  return looksLikeSpeech ? configuration.initialNoiseFloor : Math.max(configuration.initialNoiseFloor, floor);
+}
+
+function percentile(sortedValues: number[], percentileValue: number): number {
+  const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor((sortedValues.length - 1) * percentileValue)));
+  return sortedValues[index] ?? 0;
 }

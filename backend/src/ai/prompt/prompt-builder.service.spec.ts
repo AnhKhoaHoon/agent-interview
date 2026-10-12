@@ -1,4 +1,4 @@
-import { PromptBuilderService } from './prompt-builder.service';
+import { PromptBuilderService, routineModelForQuestionType, routineResponseControlsFromEnvironment } from './prompt-builder.service';
 import { InterviewAnswerPlannerService } from '../planner/interview-answer-planner.service';
 
 describe('PromptBuilderService', () => {
@@ -23,6 +23,8 @@ describe('PromptBuilderService', () => {
     expect(prompt.instructions).toContain('technical_definition');
     expect(prompt.instructions).toContain('Do not use Markdown headings, bullets, or numbered lists');
     expect(prompt.instructions).toContain('Follow the explicit Answer language');
+    expect(prompt.instructions).toContain('Answer the exact current question in the first sentence');
+    expect(prompt.instructions).toContain('Definition focus: define only the named concept');
     expect(prompt.input).toContain('Answer language: match the current interviewer question exactly');
     expect(prompt.input).toContain('Previous question');
     expect(prompt.input).toContain('What is Terraform state?');
@@ -73,6 +75,7 @@ describe('PromptBuilderService', () => {
     });
 
     expect(prompt.instructions).toContain('availability/RTO/RPO');
+    expect(prompt.instructions).toContain('Architecture focus: begin from the stated requirement');
     expect(prompt.instructions).toContain('backup is not high availability');
     expect(prompt.instructions).toContain('Do not claim active-active, zero data loss, or zero downtime');
     expect(prompt.instructions).toContain('State blast radius, choose a reversible mitigation');
@@ -139,6 +142,7 @@ describe('PromptBuilderService', () => {
     });
 
     expect(prompt.instructions).toContain('system-wide reliability, security, or cost trade-offs');
+    expect(prompt.instructions).toContain('Comparison focus: compare only the named options');
     expect(prompt.input).toContain('Question type: comparison');
     expect(prompt.input).toContain('material trade-off');
     expect(prompt.input).toContain('when to choose each option');
@@ -184,5 +188,39 @@ describe('PromptBuilderService', () => {
     expect(prompt.input).toContain('Built deployment automation with Kubernetes and Terraform.');
     expect(prompt.input).toContain('Do not claim the candidate has a requirement unless the candidate profile explicitly supports it');
     expect(prompt.input).toContain('Requires Kubernetes, AWS, and incident response.');
+  });
+
+  it('uses DBA instructions and database recovery guardrails for a DBA session', () => {
+    const classification = {
+      role: 'dba' as const, category: 'backup-recovery', type: 'scenario' as const,
+      level: 'senior' as const, intent: 'How would you test a PITR recovery?', responseMode: 'technical_scenario' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'How would you test a PITR recovery?', classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.input).toContain('Prompt version: dba-interview-answer-v1');
+    expect(prompt.input).toContain('Interview role: DBA');
+    expect(prompt.instructions).toContain('Database Administrator interview');
+    expect(prompt.instructions).toContain('backup from a tested recovery procedure');
+    expect(prompt.instructions).not.toContain('Docker accuracy');
+  });
+
+  it('routes only routine, well-scoped question types to an explicitly configured fast model', () => {
+    const environment = { LLM_ROUTINE_MODEL: 'gpt-5-mini' } as NodeJS.ProcessEnv;
+
+    expect(routineModelForQuestionType('definition', environment)).toBe('gpt-5-mini');
+    expect(routineModelForQuestionType('comparison', environment)).toBe('gpt-5-mini');
+    expect(routineModelForQuestionType('command', environment)).toBe('gpt-5-mini');
+    expect(routineModelForQuestionType('scenario', environment)).toBeUndefined();
+    expect(routineModelForQuestionType('architecture', environment)).toBeUndefined();
+  });
+
+  it('reads bounded response controls for the fast routine path', () => {
+    expect(routineResponseControlsFromEnvironment({
+      LLM_ROUTINE_REASONING_EFFORT: 'minimal',
+      LLM_ROUTINE_MAX_OUTPUT_TOKENS: '300',
+      LLM_ROUTINE_VERBOSITY: 'low'
+    } as NodeJS.ProcessEnv)).toEqual({ reasoningEffort: 'minimal', maxOutputTokens: 300, verbosity: 'low' });
   });
 });

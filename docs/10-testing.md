@@ -26,8 +26,15 @@ Phase 2 covers reducer behavior for separate interviewer/assistant bubbles, toke
 Phase 3 capture tests verify that the active tab ID is used to obtain a Chrome media stream ID, diagnostics report the audio track/sample rate, and Stop or a tab-navigation interruption stops tracks and closes the AudioContext.
 
 Phase 4 tests verify VAD state transitions: silence and short noise are ignored, sustained speech enters `speech_detected`, configured silence or the explicit Finish action enters `finalizing`, post-roll produces one ready segment, and finalization does not overlap a new utterance.
-They also verify that a speech candidate cannot raise the adaptive noise floor
-before the minimum-speech duration has been established.
+
+The manual interviewer-listening gate is tested separately: it starts closed,
+accepts a segment only after an explicit **Listen** action, and closes again on
+Pause/reset. Manual testing must also confirm that Pause stops local VAD/STT
+processing without releasing the selected-tab capture stream.
+They also verify that startup calibration learns a steady conferencing-tab noise
+floor without learning an interviewer already speaking, and that a speech
+candidate cannot raise the adaptive noise floor before the minimum-speech
+duration has been established.
 The audio-format suite also verifies that each utterance receives a complete
 RIFF/WAVE header and correct PCM payload length, preventing the corrupted WebM
 uploads found during real-provider smoke testing.
@@ -104,7 +111,7 @@ Markdown list formatting as non-blocking presentation warnings so a usable
 answer is not discarded after streaming, in addition to the hard safety and
 length validator.
 
-Transcription and classification tests cover English and Vietnamese DevOps
+Transcription and classification tests cover English and Vietnamese DevOps and DBA
 terms, selected-language prompts, controlled phonetic aliases, and Vietnamese
 comparison wording. The original STT text must remain visible even when a
 controlled interpretation is passed to answer orchestration.
@@ -181,6 +188,7 @@ Maintain deterministic fixtures:
 - follow-up question
 - behavioral question with and without a verified profile
 - senior-level architecture scenario
+- PostgreSQL PITR/replication incident and MySQL GTID failover question
 
 ## Production smoke test
 

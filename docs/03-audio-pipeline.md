@@ -23,17 +23,52 @@ Phase 3 implements only explicit selected-tab capture and local lifecycle diagno
 
 VAD and segment timing lives in one configuration module in the extension (`audio/vad-config.ts`); it must not be duplicated across UI or audio code.
 
+## Manual interviewer-listening window
+
+A meeting tab can contain both the interviewer’s remote audio and audio played
+while the candidate speaks. Therefore, connecting **Audio** does not arm
+transcription by itself. The Side Panel starts in a closed, amber
+**Paused — your turn** state.
+
+Use this deliberate turn-taking flow:
+
+1. Connect the selected interview tab with **Audio**.
+2. Before the interviewer starts a question, select **Listen**. Only then do
+   VAD and STT accept a segment.
+3. When the interviewer finishes, either wait for the silence timeout or select
+   **Finish** to finalize the question immediately.
+4. Once finalization has returned to listening, select **Pause** before giving
+   your answer. The selected tab remains connected, but VAD, PCM processing,
+   and transcription are stopped locally.
+5. Select **Listen** again for the next interviewer turn.
+
+Selecting **Pause** while an utterance is still detected intentionally discards
+that unfinished local audio. Select **Finish** first when the question should
+be transcribed. A segment is uploaded only if it finalizes while the listening
+window is open; otherwise it is discarded in the extension and never reaches
+the backend.
+
 Initial configuration:
 
 - minimum speech duration: 300 ms
 - silence timeout: 1,000 ms
 - max utterance: 30 s
-- pre-roll buffer: 250 ms
+- startup noise calibration: 650 ms
+- pre-roll buffer: 900 ms
 - post-roll buffer: 300 ms
 
 All values should be configurable.
 
-Phase 4 detects voice from RMS samples of the captured tab audio. It begins an utterance only after minimum speech, retains pre-roll to avoid cutting its beginning, finalizes after the silence timeout plus post-roll, and prevents another segment from starting until the finalization flush completes. The one-second timeout prioritizes a responsive interview handoff; **Finish** remains available when an explicit end-of-question signal is preferable.
+Phase 4 detects voice from RMS samples of the captured tab audio. At capture start,
+it samples the conferencing tab's low-level audio bed for 650 ms and derives a
+noise floor before opening an utterance. The buffered 900 ms pre-roll protects a
+question that begins during this brief calibration. If the startup window has
+speech-like dynamics, the pipeline retains its conservative floor instead of
+learning the speaker as background noise. It begins an utterance only after
+minimum speech, finalizes after the silence timeout plus post-roll, and prevents
+another segment from starting until the finalization flush completes. The
+one-second timeout prioritizes a responsive interview handoff; **Finish** remains
+available when an explicit end-of-question signal is preferable.
 
 When **Speech detected** is visible, the Side Panel also exposes **Finish**. Use it only after the interviewer has completed the question: it finalizes the current utterance (including post-roll) immediately, sends it through STT, and keeps tab capture running for the next question. This gives the user an explicit end-of-question signal when a faster response is wanted. **Cancel** discards the current local utterance before it is uploaded; it is available while speech is detected and during the brief post-roll finalization window, then VAD returns to listening. If STT has already returned an incorrect visible transcript, use **Cancel question** in that chat bubble; it cancels the correlated answer stream and removes the pair while capture continues. VAD still provides the automatic fallback, because no detector can reliably distinguish a long thinking pause from the true end of speech without a user signal.
 
@@ -42,9 +77,11 @@ empty meter means Chrome is delivering no tab audio; re-open the picker, select
 the interview tab, and enable **Share tab audio** before diagnosing STT. The
 speech threshold adapts to the tab's observed noise floor while retaining a
 small minimum threshold so quiet remote speech can still start an utterance.
-Only samples that are below the current speech threshold update that noise
-floor. This prevents a quiet interviewer’s first words from being learned as
-background noise before the minimum-speech window is reached.
+Startup calibration prevents a persistent Meet audio bed from being held as
+speech until the maximum-utterance limit. After that window, only samples below
+the current speech threshold update the noise floor. This prevents a quiet
+interviewer’s first words from being learned as background noise before the
+minimum-speech window is reached.
 
 ## Segment rules
 
@@ -90,13 +127,15 @@ the raw bytes only for the request/provider call and never persists them. A
 successful result becomes an interviewer transcript and publishes
 `question.transcribed`.
 
-Before the provider call, backend orchestration attaches a V1 DevOps STT
+Before the provider call, backend orchestration attaches a role-specific STT
 vocabulary prompt in the selected language. With the quality-first
 `gpt-transcribe` model it also sends the same controlled vocabulary as provider
 keyword guidance. This improves transcription of English technical terms in
 either interview language, such as `Docker`, `Kubernetes`, `Terraform`,
 `Jenkins`, and `Argo CD`; it is guidance, not a replacement for audible speech.
-For this model the provider adapter sends only `languages: [vi|en]`, never the
+The glossary contains DevOps terms for a DevOps session and database terms such
+as `PostgreSQL`, `WAL`, `PITR`, `GTID`, and `RMAN` for a DBA session. For this
+model the provider adapter sends only `languages: [vi|en]`, never the
 legacy singular `language` field, because OpenAI rejects a request containing
 both fields.
 It is backend-owned context only; the extension cannot set it and no raw audio

@@ -4,9 +4,10 @@ Production-oriented documentation for a Chrome Extension interview copilot.
 
 ## Current scope
 
-The product architecture is multi-role ready, but V1 supports only:
+The product supports these interview roles:
 
 - DevOps Engineer
+- Database Administrator (DBA)
 
 ## Primary user flow
 
@@ -27,11 +28,12 @@ The product architecture is multi-role ready, but V1 supports only:
 
 Listen -> Transcribe -> Understand -> Answer -> Continue.
 
-## Curated DevOps knowledge
+## Curated interview knowledge
 
 Interview-oriented knowledge cards for Linux, networking, Docker, Kubernetes,
 AWS, Infrastructure as Code, Terraform, Git, CI/CD, Ansible, observability, and security are maintained in
-[knowledge/devops](knowledge/README.md). Phase 10 indexes these cards into
+[knowledge](knowledge/README.md). The index is filtered by the selected role,
+so a DBA answer never retrieves a DevOps card. Phase 10 indexes these cards into
 pgvector through the explicit `npm run knowledge:index` job; see the deployment
 guide before enabling retrieval in an environment.
 
@@ -61,6 +63,9 @@ To produce a loadable extension, run `npm ci && npm run build` from
 production prerequisites, smoke test, và rollback procedure, xem
 [deployment and operation guide](docs/08-deployment.md).
 
+Để deploy backend tự động từ nhánh `main` lên một Linux server bằng GitHub
+Actions và GHCR, xem phần [GitHub Actions deployment](docs/08-deployment.md#github-actions-deployment-to-one-linux-server).
+
 ## Read order
 
 1. `docs/00-product-scope.md`
@@ -80,3 +85,4 @@ production prerequisites, smoke test, và rollback procedure, xem
 15. `docs/14-devops-role-spec.md`
 16. `docs/15-codex-claude-prompts.md`
 17. `docs/16-llm-model-selection.md`
+18. `docs/17-dba-role-spec.md`

@@ -79,15 +79,24 @@ Phase 3 keeps audio in memory only for local diagnostics. It does not store, enc
 
 ## Phase 4 VAD and utterance segments
 
-While capture is active, the Side Panel detects interviewer speech and shows **Listening**, **Speech detected**, or **Finalizing**. Configuration is centralized in `src/audio/vad-config.ts`:
+While tab audio is connected, the Side Panel initially shows **Paused — your
+turn**. Select **Listen** only while the interviewer is asking a question;
+select **Pause** before you answer. Pause keeps the authorized tab connection
+but stops VAD and locally discards any unfinished segment, so your own voice is
+not sent to STT. Use **Finish** first when the current interviewer question
+must be retained, then Pause after finalization. While the listening window is
+open, the Side Panel detects interviewer speech and shows **Listening**,
+**Speech detected**, or **Finalizing**. Configuration is centralized in
+`src/audio/vad-config.ts`:
 
 - minimum speech: 300 ms
 - silence timeout: 1,000 ms
-- pre-roll: 250 ms
+- startup noise calibration: 650 ms
+- pre-roll: 900 ms
 - post-roll: 300 ms
 - maximum utterance: 30 s
 
-One local `Blob` segment is finalized per sustained utterance after one second of silence and post-roll. Once **Speech detected** appears, **Finish** can explicitly end the current question sooner; **Cancel** discards the currently detected local audio before STT upload. Neither button stops capture, so the next question can still be heard. Once an interviewer transcript is visible, **Cancel question** removes an incorrect transcript and its correlated answer, asks the backend to abort its stream, and keeps tab capture active for the next question. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
+One local `Blob` segment is finalized per sustained utterance after one second of silence and post-roll. The pipeline first calibrates against the selected tab's low-level audio bed; the larger pre-roll retains the beginning of a question if it starts during that brief window. Once **Speech detected** appears, **Finish** can explicitly end the current question sooner; **Cancel** discards the currently detected local audio before STT upload. Neither button stops capture, so the next question can still be heard. Once an interviewer transcript is visible, **Cancel question** removes an incorrect transcript and its correlated answer, asks the backend to abort its stream, and keeps tab capture active for the next question. Silence-only audio is ignored, the start is protected with pre-roll, and no new finalization overlaps a pending one. Development logs and diagnostics expose only segment duration; they never expose audio contents.
 
 ## Phase 5 transcription
 

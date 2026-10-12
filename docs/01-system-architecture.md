@@ -57,7 +57,7 @@ Audio
 -> Context Builder
 -> Candidate Profile + Job Description context (when attached)
 -> Knowledge Retrieval (when relevant)
--> DevOps Prompt Builder
+-> Role Prompt Builder
 -> LLM Stream
 -> Answer Validator
 -> SSE `answer.*`

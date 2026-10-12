@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConversationMessage, InterviewQuestionAssessment } from '../contracts';
 import { QuestionClassifierService } from '../classifier/question-classifier.service';
 import { TranscriptNormalizerService } from '../normalizer/transcript-normalizer.service';
+import { InterviewRole } from '../../roles/interview-role';
 
 const NEEDS_CONTEXT = /^(?:and(?: then)?|then|why|how|what about(?: that)?|can you(?: elaborate)?|please|okay|right)[?.!]*$/i;
 const FOLLOW_UP_CUE = /^(?:and\b|also\b|then\b|how about\b|what about\b|what if\b|can you elaborate\b)|^(?:why|how)[?.!]*$|\b(?:that|those|this approach|it)\b/i;
@@ -15,14 +16,14 @@ export class InterviewQuestionGateService {
     private readonly classifier: QuestionClassifierService
   ) {}
 
-  assess(transcript: string, history: ConversationMessage[] = []): InterviewQuestionAssessment {
-    const normalizedQuestion = this.normalizer.normalize(transcript);
-    const currentClassification = this.classifier.classify(normalizedQuestion);
+  assess(transcript: string, history: ConversationMessage[] = [], role: InterviewRole = 'devops'): InterviewQuestionAssessment {
+    const normalizedQuestion = this.normalizer.normalize(transcript, role);
+    const currentClassification = this.classifier.classify(normalizedQuestion, role);
     const previousQuestion = [...history].reverse().find((message) => message.role === 'interviewer')?.content;
     const isFollowUp = Boolean(previousQuestion && FOLLOW_UP_CUE.test(normalizedQuestion));
 
     if (isFollowUp && previousQuestion) {
-      const previousClassification = this.classifier.classify(previousQuestion);
+      const previousClassification = this.classifier.classify(previousQuestion, role);
       const inheritMode = INHERIT_PREVIOUS_MODE.test(normalizedQuestion) && currentClassification.type === 'definition';
       return {
         normalizedQuestion,

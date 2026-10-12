@@ -1,5 +1,5 @@
 import { API_BASE_URL, ApiClientError, requestJson } from './client';
-import type { ApiError, InterviewSession, InterviewSessionSummary, TranscriptionLanguage } from '../types/interview';
+import type { ApiError, InterviewRole, InterviewSession, InterviewSessionSummary, TranscriptionLanguage } from '../types/interview';
 
 export interface QuestionAccepted {
   questionId: string;
@@ -24,10 +24,10 @@ export interface CandidateContextSummary {
   updatedAt: string;
 }
 
-export function createInterview(): Promise<InterviewSession> {
+export function createInterview(role: InterviewRole): Promise<InterviewSession> {
   return requestJson<InterviewSession>('/interviews', {
     method: 'POST',
-    body: JSON.stringify({ role: 'devops' })
+    body: JSON.stringify({ role })
   });
 }
 

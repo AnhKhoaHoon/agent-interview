@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { CaptureDiagnostics, CaptureInterruption, CaptureStatus, TabAudioCapture } from '../audio/tab-capture';
+import { InterviewerListeningGate } from '../audio/interviewer-listening-gate';
 import { VadPipeline, type FinalizedAudioSegment } from '../audio/vad-pipeline';
 import type { VadUiState } from '../audio/utterance-segmenter';
 import { ApiClientError } from '../api/client';
@@ -7,7 +8,7 @@ import { askQuestion, cancelQuestion as requestQuestionCancel, CandidateContextK
 import { connectInterviewEvents, type SseConnection } from '../realtime/sse-client';
 import { initialPanelState, interviewReducer } from '../state/interview.reducer';
 import type { InterviewEvent } from '../types/events';
-import type { InterviewSession, TranscriptionLanguage } from '../types/interview';
+import type { InterviewRole, InterviewSession, TranscriptionLanguage } from '../types/interview';
 import { ChatWindow } from './components/ChatWindow';
 import { CaptureControls } from './components/CaptureControls';
 import { DevCaptureDiagnostics } from './components/DevCaptureDiagnostics';
@@ -54,6 +55,7 @@ function toEpochMs(performanceTimestampMs: number): number {
 export function App(): JSX.Element {
   const [state, dispatch] = useReducer(interviewReducer, initialPanelState);
   const [session, setSession] = useState<InterviewSession>();
+  const [selectedRole, setSelectedRole] = useState<InterviewRole>('devops');
   const [candidateContexts, setCandidateContexts] = useState<CandidateContextSummary[]>([]);
   const [uploadingCandidateContext, setUploadingCandidateContext] = useState<CandidateContextKind>();
   const sessionRef = useRef<InterviewSession>();
@@ -71,6 +73,7 @@ export function App(): JSX.Element {
     audioTrackState: 'unavailable'
   });
   const [vadState, setVadState] = useState<VadUiState>();
+  const [interviewerListening, setInterviewerListening] = useState(false);
   const [lastSegmentDurationMs, setLastSegmentDurationMs] = useState<number>();
   const [lastSpeechEndToFirstAnswerMs, setLastSpeechEndToFirstAnswerMs] = useState<number>();
   const [transcriptionLanguage, setTranscriptionLanguage] = useState<TranscriptionLanguage>('en');
@@ -78,10 +81,13 @@ export function App(): JSX.Element {
   const [audioLevel, setAudioLevel] = useState(0);
   const [speechThreshold, setSpeechThreshold] = useState(0);
   const pipelineRef = useRef<VadPipeline>();
+  const listeningGateRef = useRef(new InterviewerListeningGate());
   const pendingSegmentsRef = useRef(new Map<string, FinalizedAudioSegment>());
 
   const handleCaptureInterruption = useCallback((interruption: CaptureInterruption) => {
     pipelineRef.current?.stop();
+    listeningGateRef.current.reset();
+    setInterviewerListening(false);
     setCaptureStatus('error');
     setCaptureError(interruption.reason === 'tab_closed'
       ? 'The selected interview tab was closed.'
@@ -90,6 +96,8 @@ export function App(): JSX.Element {
         : 'The selected tab audio track ended.');
     setCaptureDiagnostics({ streamActive: false, audioTrackState: 'unavailable' });
     setVadState(undefined);
+    setAudioLevel(0);
+    setSpeechThreshold(0);
   }, []);
   const captureRef = useRef<TabAudioCapture>();
   if (!captureRef.current) captureRef.current = new TabAudioCapture(handleCaptureInterruption, undefined, setCaptureStatus);
@@ -277,6 +285,8 @@ export function App(): JSX.Element {
   const connect = useCallback((interviewId: string, accessToken: string) => {
     closeEventSource();
     pipelineRef.current?.stop();
+    listeningGateRef.current.reset();
+    setInterviewerListening(false);
     sourceRef.current = connectInterviewEvents(eventStreamUrl(interviewId), accessToken, {
       onOpen: () => {
         if (activeAnswerIdsRef.current.size === 0) dispatch({ type: 'connected' });
@@ -289,7 +299,7 @@ export function App(): JSX.Element {
   const startSession = useCallback(async () => {
     try {
       dispatch({ type: 'reset' });
-      const createdSession = await createInterview();
+      const createdSession = await createInterview(selectedRole);
       sessionRef.current = createdSession;
       setSession(createdSession);
       setCandidateContexts([]);
@@ -300,7 +310,7 @@ export function App(): JSX.Element {
     } catch (error) {
       dispatch({ type: 'error', message: errorMessage(error) });
     }
-  }, [connect]);
+  }, [connect, selectedRole]);
 
   const uploadContext = useCallback(async (kind: CandidateContextKind, document: File) => {
     const activeSession = sessionRef.current;
@@ -334,6 +344,7 @@ export function App(): JSX.Element {
   const stopSession = useCallback(async () => {
     const interviewId = session?.id;
     closeEventSource();
+    listeningGateRef.current.reset();
     await captureRef.current?.stop();
     pendingSegmentsRef.current.clear();
     activeAnswerIdsRef.current.clear();
@@ -345,6 +356,7 @@ export function App(): JSX.Element {
     setCaptureStatus('stopped');
     setCaptureDiagnostics(captureRef.current?.diagnostics() ?? { streamActive: false, audioTrackState: 'unavailable' });
     setVadState(undefined);
+    setInterviewerListening(false);
     setAudioLevel(0);
     setSpeechThreshold(0);
     setSession(undefined);
@@ -371,48 +383,94 @@ export function App(): JSX.Element {
     }
   }, [session, transcriptionLanguage]);
 
-  const startCapture = useCallback(async (source: 'active-tab' | 'picker' = 'active-tab') => {
+  const startListening = useCallback(async () => {
+    if (!captureRef.current?.activeStream()) {
+      setCaptureError('Connect interview-tab audio before listening for a question.');
+      return;
+    }
     try {
       setCaptureError(undefined);
       setAudioLevel(0);
       setSpeechThreshold(0);
-      const activeCapture = source === 'picker'
-        ? await captureRef.current!.startWithPicker()
-        : await captureRef.current!.start();
       pipelineRef.current?.stop();
-      pipelineRef.current = new VadPipeline(captureRef.current!, {
+      listeningGateRef.current.start();
+      setInterviewerListening(true);
+      pipelineRef.current = new VadPipeline(captureRef.current, {
         onStateChange: setVadState,
         onAudioLevel: (level, threshold) => {
           setAudioLevel(level);
           setSpeechThreshold(threshold);
         },
         onSegment: (segment) => {
+          // The user may have paused listening while VAD was finishing. In
+          // that case discard locally; never upload the candidate's audio.
+          if (!listeningGateRef.current.acceptsSegment()) {
+            if (import.meta.env.DEV) console.info('[Agent Interview] discarded segment outside interviewer listening window');
+            return;
+          }
           setLastSegmentDurationMs(segment.durationMs);
-          if (import.meta.env.DEV) console.info('[Agent Interview] finalized utterance segment', { durationMs: Math.round(segment.durationMs) });
+          if (import.meta.env.DEV) console.info('[Agent Interview] finalized interviewer segment', { durationMs: Math.round(segment.durationMs) });
           queueSegmentForTranscription(segment);
         },
         onError: (error) => {
+          listeningGateRef.current.pause();
+          setInterviewerListening(false);
           setCaptureStatus('error');
           setCaptureError(error.message);
         }
       });
       await pipelineRef.current.start();
-      setCaptureDiagnostics(activeCapture.diagnostics);
       setCaptureStatus('listening');
     } catch (error) {
       pipelineRef.current?.stop();
+      listeningGateRef.current.pause();
+      setInterviewerListening(false);
+      setVadState(undefined);
+      setCaptureError(error instanceof Error ? error.message : 'Interviewer listening could not start.');
+    }
+  }, [queueSegmentForTranscription]);
+
+  const pauseListening = useCallback(() => {
+    listeningGateRef.current.pause();
+    pipelineRef.current?.stop();
+    setInterviewerListening(false);
+    setVadState(undefined);
+    setAudioLevel(0);
+    setSpeechThreshold(0);
+  }, []);
+
+  const startCapture = useCallback(async (source: 'active-tab' | 'picker' = 'active-tab') => {
+    try {
+      setCaptureError(undefined);
+      setAudioLevel(0);
+      setSpeechThreshold(0);
+      pipelineRef.current?.stop();
+      listeningGateRef.current.reset();
+      setInterviewerListening(false);
+      const activeCapture = source === 'picker'
+        ? await captureRef.current!.startWithPicker()
+        : await captureRef.current!.start();
+      setCaptureDiagnostics(activeCapture.diagnostics);
+      setCaptureStatus('listening');
+      setVadState(undefined);
+    } catch (error) {
+      pipelineRef.current?.stop();
+      listeningGateRef.current.reset();
+      setInterviewerListening(false);
       await captureRef.current!.stop();
       setCaptureDiagnostics(captureRef.current!.diagnostics());
       setCaptureStatus('error');
       setCaptureError(error instanceof Error ? error.message : 'Tab audio capture failed.');
     }
-  }, [queueSegmentForTranscription]);
+  }, []);
 
   const stopCapture = useCallback(async () => {
+    listeningGateRef.current.reset();
     pipelineRef.current?.stop();
     await captureRef.current!.stop();
     setCaptureDiagnostics(captureRef.current!.diagnostics());
     setCaptureError(undefined);
+    setInterviewerListening(false);
     setAudioLevel(0);
     setSpeechThreshold(0);
     setCaptureStatus('stopped');
@@ -420,11 +478,11 @@ export function App(): JSX.Element {
   }, []);
 
   const finishCurrentQuestion = useCallback(() => {
-    pipelineRef.current?.finishCurrentUtterance();
+    if (listeningGateRef.current.isListening()) pipelineRef.current?.finishCurrentUtterance();
   }, []);
 
   const cancelCurrentQuestion = useCallback(() => {
-    pipelineRef.current?.cancelCurrentUtterance();
+    if (listeningGateRef.current.isListening()) pipelineRef.current?.cancelCurrentUtterance();
   }, []);
 
   useEffect(() => {
@@ -445,6 +503,7 @@ export function App(): JSX.Element {
 
   useEffect(() => () => {
     closeEventSource();
+    listeningGateRef.current.reset();
     pipelineRef.current?.stop();
     pendingSegmentsRef.current.clear();
     activeAnswerIdsRef.current.clear();
@@ -462,6 +521,9 @@ export function App(): JSX.Element {
       <Header
         status={state.status}
         hasSession={Boolean(session)}
+        role={session?.role ?? selectedRole}
+        roleLocked={Boolean(session)}
+        onRoleChange={setSelectedRole}
         onStart={() => void startSession()}
         onStop={() => void stopSession()}
         controls={(
@@ -469,6 +531,7 @@ export function App(): JSX.Element {
             <CaptureControls
               status={captureStatus}
               vadState={vadState}
+              interviewerListening={interviewerListening}
               error={captureError}
               disabled={!session}
               language={transcriptionLanguage}
@@ -477,6 +540,8 @@ export function App(): JSX.Element {
               speechThreshold={speechThreshold}
               onFinishQuestion={finishCurrentQuestion}
               onCancelQuestion={cancelCurrentQuestion}
+              onStartListening={() => void startListening()}
+              onPauseListening={pauseListening}
               onStart={() => void startCapture('picker')}
               onUseActiveTab={() => void startCapture()}
               onStop={() => void stopCapture()}
@@ -492,7 +557,7 @@ export function App(): JSX.Element {
         )}
       />
       <ErrorBanner message={state.error} />
-      <ChatWindow messages={state.messages} hasSession={Boolean(session)} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} onCancelQuestion={(questionId) => void cancelTranscript(questionId)} />
+      <ChatWindow messages={state.messages} hasSession={Boolean(session)} role={session?.role ?? selectedRole} onRetryTranscription={retryTranscription} onRetryAnswer={(questionId) => void retryAnswer(questionId)} onCancelQuestion={(questionId) => void cancelTranscript(questionId)} />
       {import.meta.env.DEV && (
         <details className="developer-tools">
           <summary>Developer tools</summary>

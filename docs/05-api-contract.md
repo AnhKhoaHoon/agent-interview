@@ -26,6 +26,14 @@ Readiness returns HTTP 200 only when the application can query PostgreSQL:
 
 POST `/interviews`
 
+Request (role is optional and defaults to `devops`):
+
+```json
+{"role":"dba"}
+```
+
+Supported role IDs: `devops`, `dba`.
+
 Response:
 ```json
 {

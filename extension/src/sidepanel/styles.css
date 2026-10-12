@@ -27,18 +27,34 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .app-header {
   background: rgba(15, 23, 42, .8);
   border-bottom: 1px solid #26354d;
-  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px 8px;
+  position: relative;
+  z-index: 10;
 }
 
 .header-main-row { align-items: center; display: flex; gap: 8px; min-height: 30px; width: 100%; }
-.app-identity { align-items: center; display: flex; flex: 0 1 auto; gap: 7px; min-width: 0; overflow: hidden; }
+.app-identity { align-items: center; display: flex; flex: 0 1 auto; gap: 7px; min-width: 0; overflow: visible; }
 .app-header h1 { color: #f8fafc; flex: 0 1 auto; font-size: 14px; letter-spacing: -.02em; line-height: 1.15; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-meta { align-items: center; display: flex; gap: 6px; min-width: 0; }
 .session-button { flex: 0 0 auto; }
-.header-actions { align-items: center; display: flex; flex: 1 1 auto; gap: 7px; justify-content: flex-end; min-width: 0; }
-.header-controls { align-items: center; display: flex; flex: 1 1 auto; gap: 7px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.header-controls::-webkit-scrollbar { display: none; }
-.role-chip { background: #1e293b; border: 1px solid #334155; border-radius: 99px; color: #cbd5e1; font-size: 9px; font-weight: 700; padding: 3px 6px; }
+.header-controls { align-items: center; border-top: 1px solid #26354d; display: flex; gap: 8px; min-width: 0; overflow: visible; padding-top: 7px; width: 100%; }
+.app-header .candidate-context-controls { border-left: 1px solid #26354d; padding-left: 8px; }
+.role-selector { flex: 0 0 auto; position: relative; }
+.role-trigger { align-items: center; background: #17263b; border: 1px solid #3b5b84; border-radius: 7px; color: #9fc5ff; cursor: pointer; display: inline-flex; font: inherit; font-size: 9px; font-weight: 800; gap: 5px; min-height: 27px; padding: 5px 7px; transition: background .15s ease, border-color .15s ease; }
+.role-trigger:hover:not(:disabled) { background: #203957; border-color: #5c86bb; }
+.role-trigger strong { color: #f1f5f9; font-size: 10px; }
+.role-trigger i { color: #7dd3fc; font-size: 13px; font-style: normal; line-height: .6; transition: transform .15s ease; }
+.role-trigger[aria-expanded="true"] { background: #203957; border-color: #60a5fa; }
+.role-trigger[aria-expanded="true"] i { transform: rotate(180deg); }
+.role-trigger:disabled { cursor: default; opacity: .8; }
+.role-trigger:focus-visible, .role-option:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
+.role-options { background: #111c2e; border: 1px solid #3b5b84; border-radius: 8px; box-shadow: 0 12px 26px rgba(2, 6, 23, .5); display: grid; gap: 3px; min-width: 120px; padding: 4px; position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; }
+.role-option { background: transparent; border: 0; border-radius: 5px; color: #cbd5e1; cursor: pointer; font: inherit; font-size: 10px; font-weight: 750; padding: 7px 8px; text-align: left; transition: background .15s ease, color .15s ease; }
+.role-option:hover { background: #223b5b; color: #f8fafc; }
+.role-option.is-active { background: rgba(37, 99, 235, .36); color: #dbeafe; }
 .header-status { align-items: center; color: #9fb0c7; display: inline-flex; font-size: 10px; font-weight: 750; gap: 5px; }
 
 .button {
@@ -95,7 +111,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .candidate-context-controls[open] summary { background: #1e3452; border-color: #4b78ad; }
 .candidate-context-controls[open] summary::after { transform: rotate(180deg); }
 .candidate-context-controls summary span { color: #7dd3fc; font-size: 9px; }
-.candidate-context-menu { background: #111c2e; border: 1px solid #365171; border-radius: 9px; box-shadow: 0 12px 26px rgba(2, 6, 23, .48); padding: 9px; position: absolute; right: 0; top: calc(100% + 6px); width: 250px; z-index: 5; }
+.candidate-context-menu { background: #111c2e; border: 1px solid #365171; border-radius: 9px; box-shadow: 0 12px 26px rgba(2, 6, 23, .48); padding: 9px; position: absolute; right: 0; top: calc(100% + 6px); width: 250px; z-index: 20; }
 .candidate-context-menu > p { color: #9fb0c7; line-height: 1.4; margin: 0 0 8px; }
 .candidate-context-actions { display: grid; gap: 8px; }
 .candidate-context-item { display: grid; gap: 3px; min-width: 0; }
@@ -122,8 +138,9 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   border: 0;
   border-radius: 0;
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   grid-template-columns: none;
+  justify-content: flex-start;
   min-width: max-content;
   margin: 0;
   min-height: 32px;
@@ -143,19 +160,20 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
 .capture-summary { align-items: center; display: flex; gap: 7px; min-width: 0; }
 .capture-indicator { background: #64748b; border-radius: 99px; box-shadow: 0 0 0 3px rgba(100, 116, 139, .13); flex: 0 0 auto; height: 7px; width: 7px; }
 .capture-listening .capture-indicator { background: #34d399; box-shadow: 0 0 0 4px rgba(52, 211, 153, .13); }
+.capture-interviewer-paused .capture-indicator { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251, 191, 36, .13); }
 .capture-requesting_permission .capture-indicator, .capture-connecting .capture-indicator { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96, 165, 250, .13); }
 .capture-error .capture-indicator { background: #fb7185; box-shadow: 0 0 0 4px rgba(251, 113, 133, .14); }
 
 .capture-controls strong { color: #f1f5f9; display: block; font-size: 11px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capture-label { color: #8fa2ba; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .vad-state { background: rgba(14, 116, 144, .18); border: 1px solid rgba(56, 189, 248, .24); border-radius: 99px; color: #a5d8ff; font-size: 9px; font-weight: 700; padding: 4px 6px; white-space: nowrap; }
 .capture-action { align-self: center; min-width: auto; }
 .capture-actions { align-items: center; display: flex; flex-direction: row; gap: 5px; }
-.transcription-language { align-items: center; display: flex; gap: 4px; }
+.transcription-language { align-items: center; display: flex; gap: 4px; margin-left: auto; }
 .transcription-language span { color: #8fa2ba; font-size: 9px; font-weight: 700; }
 .transcription-language select { background: #17263b; border: 1px solid #3b4d67; border-radius: 6px; color: #dbeafe; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; max-width: 84px; padding: 4px 5px; }
 .transcription-language select:focus-visible { outline: 3px solid rgba(96, 165, 250, .55); outline-offset: 2px; }
-.audio-meter { align-items: center; display: flex; gap: 4px; min-width: 52px; }
-.audio-meter-label { color: #8fa2ba; font-size: 9px; font-weight: 700; }
+.audio-meter { align-items: center; display: flex; gap: 4px; min-width: 38px; }
 .audio-meter-track { background: #0b1220; border: 1px solid #334155; border-radius: 99px; display: block; height: 6px; overflow: hidden; width: 34px; }
 .audio-meter-track i { background: linear-gradient(90deg, #34d399, #60a5fa); display: block; height: 100%; min-width: 1px; transition: width .1s linear; }
 
@@ -275,12 +293,13 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(96, 165, 
   .capture-controls { grid-template-columns: minmax(0, 1fr) auto auto auto; }
   .app-header h1 { display: none; }
   .header-main-row { gap: 5px; }
-  .header-actions { gap: 5px; }
-  .header-controls { gap: 5px; }
-  .transcription-language span { display: none; }
-  .audio-meter-label { display: none; }
+  .header-controls { flex-wrap: wrap; gap: 5px; }
+  .app-header .capture-controls { min-width: 0; }
+  .capture-label { display: none; }
+  .transcription-language { margin-left: 0; }
+  .app-header .candidate-context-controls { padding-left: 5px; }
   .capture-actions .button { padding-left: 6px; padding-right: 6px; }
   .candidate-context-controls summary { padding-left: 6px; padding-right: 6px; }
-  .role-chip { display: none; }
+  .role-selector span { display: none; }
   .chat-bubble { max-width: 100%; }
 }

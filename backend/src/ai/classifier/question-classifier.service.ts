@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Classification, QuestionType, ResponseMode } from '../contracts';
+import { InterviewRole } from '../../roles/interview-role';
 
-const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
+const DEVOPS_CATEGORY_MATCHERS: Array<[string, RegExp]> = [
   ['docker-compose', /\b(docker[ -]?compose|compose\.ya?ml)\b/i],
   ['azure', /\b(azure|aks|bicep|azure devops|azure pipelines?|azure repos|azure artifacts|microsoft entra|entra id|key vault|azure container registry|acr|app service|azure functions|azure monitor|log analytics|workload identity federation)\b/i],
   ['gcp', /\b(gcp|google cloud|gke|cloud run|cloud build|artifact registry|cloud monitoring|cloud logging|cloud trace|cloud sql|pub\/?sub|bigquery|workload identity)\b/i],
@@ -32,13 +33,27 @@ const CATEGORY_MATCHERS: Array<[string, RegExp]> = [
   ['system-design', /\b(system design|architecture|architect)\b/i]
 ];
 
+const DBA_CATEGORY_MATCHERS: Array<[string, RegExp]> = [
+  ['db2-luw', /\b(db2(?:\s+luw)?|ibm db2|db2pd|db2diag|hadr|purescale|dpf|database partition(?:ing|ed)|federation|sql\s*pl)\b/i],
+  ['postgresql', /\b(postgresql|postgres|pg_stat|pg_dump|pg_restore|wal|vacuum|autovacuum|pitr)\b/i],
+  ['mysql', /\b(mysql|mariadb|innodb|binlog|gtid)\b/i],
+  ['sql-server', /\b(sql server|mssql|always on|availability group|query store|t-?sql)\b/i],
+  ['oracle', /\b(oracle|rman|data guard|redo log)\b/i],
+  ['backup-recovery', /\b(backup|restore|recovery|point[ -]?in[ -]?time|pitr|rpo|rto)\b|sao\s+lưu|phục\s+hồi/iu],
+  ['replication-ha', /\b(replication|replica|failover|high availability|read replica|replication lag)\b|nhân\s+bản|chuyển\s+đổi\s+dịch\s+vụ/iu],
+  ['performance', /\b(query plan|explain|index(?:es)?|slow query|performance|latency|connection pool|lock(?:ing)?|deadlock)\b|hiệu\s+năng|tối\s+ưu|truy\s+vấn\s+chậm|khóa/iu],
+  ['database-security', /\b(database security|encryption|audit|least privilege|database role|privilege|sql injection|row level security)\b|phân\s+quyền|mã\s+hóa|kiểm\s+toán/iu],
+  ['troubleshooting', /\b(error|failed|failure|not working|debug|troubleshoot|incident|outage)\b|lỗi|sự\s+cố|không\s+hoạt\s+động/iu],
+  ['general', /\b(database|dba|sql|transaction|acid|isolation|schema|migration)\b|cơ\s+sở\s+dữ\s+liệu|giao\s+dịch/iu]
+];
+
 @Injectable()
 export class QuestionClassifierService {
-  classify(question: string): Classification {
+  classify(question: string, role: InterviewRole = 'devops'): Classification {
     const type = this.detectType(question);
-    const category = this.detectCategory(question, type);
+    const category = this.detectCategory(question, type, role);
     return {
-      role: 'devops',
+      role,
       category,
       type,
       level: this.detectLevel(question),
@@ -50,19 +65,21 @@ export class QuestionClassifierService {
   private detectType(question: string): QuestionType {
     if (/(?:\bcompare\b|\bdifference\b|\bvs\.?\b|\bversus\b|sự\s+khác\s+biệt|khác\s+nhau|so\s+sánh|phân\s+biệt|(?:việc|vấn\s+đề)\s+giữa)/iu.test(question)) return 'comparison';
     if (/\b(error|failed|failure|not working|crashloop|debug|troubleshoot|incident)\b/i.test(question)) return 'troubleshooting';
+    if (/(?:\b(write|implement|code)\b.{0,48}\b(?:sql|query|select|procedure)\b|\b(?:sql|query)\b.{0,32}\b(?:for|to|that)\b|viết\s+(?:câu\s+)?(?:sql|query|truy\s+vấn)|code\s+(?:sql|query))/iu.test(question)) return 'command';
     if (/\b(design|architecture|architect)\b/i.test(question)) return 'architecture';
-    if (/\b(command|cli|kubectl|how would you check)\b/i.test(question)) return 'command';
+    if (/\b(command|cli|kubectl|psql|mysql|sqlcmd|rman|how would you check)\b/i.test(question)) return 'command';
     if (/\b(tell me about|experience|have you|describe a time)\b/i.test(question)) return 'experience';
     if (/\b(what would you|how would you|scenario)\b/i.test(question)) return 'scenario';
     if (/\b(best practice|best-practice)\b/i.test(question)) return 'best-practice';
     return 'definition';
   }
 
-  private detectCategory(question: string, type: QuestionType): string {
+  private detectCategory(question: string, type: QuestionType, role: InterviewRole): string {
     // GitLab and Jenkins in one short question is an interview comparison of
     // CI/CD tools, even if STT drops words such as "sự khác biệt".
-    if (type === 'comparison' && /\bgitlab\b/i.test(question) && /\bjenkins\b/i.test(question)) return 'cicd';
-    return CATEGORY_MATCHERS.find(([, matcher]) => matcher.test(question))?.[0]
+    if (role === 'devops' && type === 'comparison' && /\bgitlab\b/i.test(question) && /\bjenkins\b/i.test(question)) return 'cicd';
+    const matchers = role === 'dba' ? DBA_CATEGORY_MATCHERS : DEVOPS_CATEGORY_MATCHERS;
+    return matchers.find(([, matcher]) => matcher.test(question))?.[0]
       ?? (type === 'troubleshooting' ? 'troubleshooting' : 'general');
   }
 

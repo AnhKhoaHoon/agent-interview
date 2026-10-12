@@ -8,7 +8,7 @@ For the supported Vietnamese and English interview modes, the language selected
 in the Side Panel is passed through the transcription/manual-question request
 and requires the answer to use that selected language. This is deliberate: an
 English answer can be requested for a Vietnamese transcript, or the reverse,
-without relying on language guessing. Standard DevOps commands and product
+without relying on language guessing. Standard role-specific commands and product
 names may remain in their usual technical form.
 
 ## Pipeline
@@ -35,7 +35,7 @@ Responsibilities:
 
 The original provider transcript remains the interviewer message and is the
 audit trail for what was heard. For answer orchestration only, the normalizer
-may apply a small, controlled alias list for unambiguous DevOps STT mistakes
+may apply a small, controlled alias list for unambiguous role-specific STT mistakes
 (for example, a phonetic `Zen tin` corrected to `Jenkins`). It never invents a
 sentence, translates the question, or silently replaces the displayed text.
 When an alias is applied, the Side Panel shows the interpreted text separately.
@@ -82,6 +82,18 @@ DevOps categories:
 - troubleshooting
 - system-design
 
+DBA categories:
+- postgresql
+- mysql
+- sql-server
+- oracle
+- backup-recovery
+- replication-ha
+- performance
+- database-security
+- troubleshooting
+- general
+
 Question types:
 - definition
 - comparison
@@ -114,7 +126,7 @@ never rewritten by this step.
 
 In Phase 7 the gate also detects contextual follow-ups. A referential question
 such as `Why?`, `What about cost?`, or `How would you verify that?` can inherit
-the previous DevOps category and level. It inherits the earlier answer shape
+the previous category and level for the selected role. It inherits the earlier answer shape
 only for short continuation forms; a follow-up with its own clear scenario or
 question type keeps that new shape. Without a prior interviewer turn, an
 otherwise incomplete fragment still produces `clarification`.
@@ -167,7 +179,8 @@ Each plan defines:
 - quality checks appropriate to the mode; and
 - a maximum word count (120 words, or 30 for a clarification).
 
-The current plan is versioned as `devops-interview-answer-v3`. This allows a
+The DevOps plan is versioned as `devops-interview-answer-v3`; the DBA plan is
+`dba-interview-answer-v1`. This allows a
 future prompt revision to be evaluated against the same fixtures without
 changing classifier or provider code.
 
@@ -194,7 +207,7 @@ instead of forcing a technical definition.
 ## 5. Prompt strategy
 
 Default rules:
-- answer as a prepared DevOps candidate would speak, not as a textbook or a chat assistant
+- answer as a prepared candidate for the selected role would speak, not as a textbook or a chat assistant
 - lead with the direct answer; do not start with filler such as "Certainly" or repeat the question
 - direct definitions: roughly 8-15 seconds, 18-55 words
 - applied technical answers: use their mode-specific range and depth
@@ -217,6 +230,16 @@ the earlier answer.
 
 ### Candidate-answer policy
 
+- **Scope first:** the first sentence answers the exact current question. If the
+  interviewer asks several direct subquestions, answer them in that order. Do
+  not append unrelated platforms or workflows simply to sound senior.
+- **Evidence over generic advice:** applied answers use one relevant, precise
+  operational detail (for example, a signal, security boundary, rollback
+  point, command interpretation, or validation) instead of a checklist of
+  buzzwords. Preserve evidence before a broad production change.
+- **Decisive but bounded:** avoid an unexplained "it depends." State the
+  deciding constraint or a safe assumption. Never turn a possibility into a
+  guarantee about availability, recovery, security, performance, or cost.
 - Direct definition questions: state the concept first, then add at most one essential distinction or relevance sentence. Do not volunteer a workflow, practical example, or verification step.
 - Other technical questions: state the concept or recommendation first, then add the practical detail, trade-off, or example appropriate to that mode.
 - Scenario and architecture questions: explain the proposed approach, why it fits, key risks/trade-offs, and how it would be validated.
@@ -279,7 +302,8 @@ and must not be presented as implemented.
 
 ## 7. RAG
 
-Phase 10 indexes the curated `knowledge/devops/` Markdown cards into PostgreSQL
+The role-aware knowledge index ingests curated `knowledge/devops/` and
+`knowledge/dba/` Markdown cards into PostgreSQL
 with pgvector. The explicit backend-only `npm run knowledge:index` job hashes
 each source, skips unchanged documents, splits heading-based sections, embeds
 the chunks, and stores role/category/source/version metadata. It never indexes
@@ -287,8 +311,8 @@ audio, interview transcripts, extension data, or provider secrets.
 
 At answer time, retrieval runs after classification and before prompt building.
 It uses hybrid retrieval: semantic pgvector candidates plus lexical technical
-keyword candidates. Both database searches are constrained to the classified
-category and its explicit related categories (for example, Azure may retrieve
+keyword candidates. Both database searches are constrained to the selected role,
+classified category and its explicit related categories (for example, Azure may retrieve
 Azure plus directly relevant AKS/networking/security material); a result from
 an unrelated category is never injected just because its vector score is high.
 Candidates above `RAG_MIN_SIMILARITY`, or with enough lexical-keyword coverage
@@ -296,7 +320,8 @@ Candidates above `RAG_MIN_SIMILARITY`, or with enough lexical-keyword coverage
 `RAG_MAX_CHUNKS` are added to the prompt.
 The prompt treats them as untrusted reference text: it ignores instructions
 inside them and never tells the candidate that documents, sources, retrieval,
-or citations were used.
+or citations were used. A DBA session cannot retrieve a DevOps document, and a
+DevOps session cannot retrieve a DBA document.
 
 When the index is absent, the embedding provider is unavailable, the score is
 below threshold, or the retrieved topic does not match the classification, RAG

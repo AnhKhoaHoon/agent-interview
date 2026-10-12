@@ -1,8 +1,8 @@
-# DevOps Knowledge Base
+# Interview Knowledge Base
 
-Curated V1 material for DevOps interview answers. Each topic is written as a
+Curated material for DevOps and DBA interview answers. Each topic is written as a
 compact knowledge card: core concepts, safe operational checks, trade-offs, and
-common interview pitfalls. Content supports the DevOps role only.
+common interview pitfalls. Retrieval is isolated by the interview role.
 
 Phase 10 indexes these cards explicitly into pgvector with the backend-only
 knowledge-index command. Only topic-matched, sufficiently relevant chunks are
@@ -94,3 +94,11 @@ scenario, troubleshooting, comparison, and production questions only.
 - [Ansible](devops/ansible/README.md)
 - [Observability](devops/observability/README.md)
 - [Security](devops/security/README.md)
+
+## DBA
+
+- [DBA role knowledge](dba/README.md)
+- [PostgreSQL](dba/postgresql/README.md)
+- [MySQL](dba/mysql/README.md)
+- [Db2 LUW](dba/db2-luw/README.md)
+- [Production operations](dba/operations/README.md)

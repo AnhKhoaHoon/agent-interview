@@ -4,6 +4,7 @@ import { InterviewLanguage } from '../ai/contracts';
 import { InterviewService } from '../interview/interview.service';
 import { InterviewRepository } from '../persistence/interview.repository';
 import { DEVOPS_TRANSCRIPTION_KEYWORDS, devopsTranscriptionPrompt } from '../roles/devops/devops-transcription-prompt';
+import { DBA_TRANSCRIPTION_KEYWORDS, dbaTranscriptionPrompt } from '../roles/dba/dba-transcription-prompt';
 import { SttProviderFactory } from './providers/stt-provider.factory';
 import { normalizeAudioContentType, SUPPORTED_AUDIO_TYPES, transcriptionConfiguration } from './transcription.config';
 
@@ -88,6 +89,10 @@ export class TranscriptionService {
     metadata: { segmentId?: string; speechEndedAtMs?: number; language?: InterviewLanguage; requestId?: string }
   ): Promise<TranscriptionResponse> {
     await this.interviews.transcriptionStarted(interviewId, durationMs);
+    const interview = await this.interviews.get(interviewId);
+    const transcriptionGuidance = interview.role === 'dba'
+      ? { keywords: DBA_TRANSCRIPTION_KEYWORDS, prompt: dbaTranscriptionPrompt }
+      : { keywords: DEVOPS_TRANSCRIPTION_KEYWORDS, prompt: devopsTranscriptionPrompt };
     const startedAt = Date.now();
     let providerName = 'unresolved';
     try {
@@ -110,8 +115,8 @@ export class TranscriptionService {
         filename: audio.originalname || 'utterance.webm',
         ...(metadata.language ? {
           language: metadata.language,
-          prompt: devopsTranscriptionPrompt(metadata.language),
-          keywords: DEVOPS_TRANSCRIPTION_KEYWORDS
+          prompt: transcriptionGuidance.prompt(metadata.language),
+          keywords: transcriptionGuidance.keywords
         } : {})
       });
       if (!result.text.trim()) throw new ServiceUnavailableException({ code: 'STT_EMPTY_RESULT', message: 'Speech provider returned no transcript', retryable: true });

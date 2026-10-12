@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { ConversationMessage } from '../ai/contracts';
 import { Interview, InterviewMessage, InterviewStatus, MessageRole, MessageStatus } from '../interview/interview.types';
 import { DatabaseService } from './database.service';
+import { InterviewRole } from '../roles/interview-role';
 import {
   CandidateContextRecord,
   CompleteAiResponseInput,
@@ -14,7 +15,7 @@ import {
 
 interface InterviewRow {
   id: string;
-  role: 'devops';
+  role: InterviewRole;
   status: InterviewStatus;
   created_at: Date;
   ended_at: Date | null;

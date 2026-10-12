@@ -13,6 +13,7 @@ const statusLabels: Record<CaptureStatus, string> = {
 interface CaptureControlsProps {
   status: CaptureStatus;
   vadState?: VadUiState;
+  interviewerListening: boolean;
   error?: string;
   disabled?: boolean;
   language: TranscriptionLanguage;
@@ -21,6 +22,8 @@ interface CaptureControlsProps {
   speechThreshold: number;
   onFinishQuestion: () => void;
   onCancelQuestion: () => void;
+  onStartListening: () => void;
+  onPauseListening: () => void;
   onStart: () => void;
   onUseActiveTab: () => void;
   onStop: () => void;
@@ -33,19 +36,19 @@ function captureGuidance(error: string): string | undefined {
   return undefined;
 }
 
-export function CaptureControls({ status, vadState, error, disabled = false, language, onLanguageChange, audioLevel, speechThreshold, onFinishQuestion, onCancelQuestion, onStart, onUseActiveTab, onStop }: CaptureControlsProps): JSX.Element {
+export function CaptureControls({ status, vadState, interviewerListening, error, disabled = false, language, onLanguageChange, audioLevel, speechThreshold, onFinishQuestion, onCancelQuestion, onStartListening, onPauseListening, onStart, onUseActiveTab, onStop }: CaptureControlsProps): JSX.Element {
   const capturing = status === 'requesting_permission' || status === 'connecting' || status === 'listening';
   const guidance = error ? captureGuidance(error) : undefined;
-  const vadLabel = vadState === 'speech_detected' ? 'Speech detected' : vadState === 'finalizing' ? 'Finalizing' : 'Listening';
+  const vadLabel = vadState === 'speech_detected' ? 'Speech detected' : vadState === 'finalizing' ? 'Finalizing' : undefined;
   return (
-    <section className={`capture-controls capture-${status}`} aria-label="Tab audio capture">
+    <section className={`capture-controls capture-${status}${capturing && !interviewerListening ? ' capture-interviewer-paused' : ''}`} aria-label="Tab audio capture">
       <div className="capture-summary">
         <span className="capture-indicator" aria-hidden="true" />
-        <strong>{disabled ? 'Start session first' : statusLabels[status]}</strong>
-        {vadState && <span className="vad-state">{vadLabel}</span>}
+        <span className="capture-label">Audio</span>
+        <strong aria-live="polite">{disabled ? 'Start session first' : capturing && !interviewerListening ? 'Paused — your turn' : statusLabels[status]}</strong>
+        {interviewerListening && vadLabel && <span className="vad-state">{vadLabel}</span>}
       </div>
       <label className="transcription-language">
-        <span>Language</span>
         <select value={language} onChange={(event) => onLanguageChange(event.target.value as TranscriptionLanguage)} aria-label="Interview audio language">
           <option value="vi">Tiếng Việt</option>
           <option value="en">English</option>
@@ -53,16 +56,22 @@ export function CaptureControls({ status, vadState, error, disabled = false, lan
       </label>
       {capturing && (
         <div className="audio-meter" aria-label={`Tab audio level ${Math.round(audioLevel * 100)} percent`} title="Live level from the selected interview tab">
-          <span className="audio-meter-label">Sound</span>
           <span className="audio-meter-track"><i style={{ width: `${Math.min(100, (audioLevel / Math.max(speechThreshold * 2, 0.01)) * 100)}%` }} /></span>
         </div>
       )}
       <div className="capture-actions">
         {capturing ? (
           <>
-            {vadState === 'speech_detected' && <button className="button ghost capture-action compact-button" type="button" onClick={onFinishQuestion} aria-label="Finish the current interviewer question" title="Use only after the interviewer has finished the question">Finish</button>}
-            {(vadState === 'speech_detected' || vadState === 'finalizing') && <button className="button ghost capture-action compact-button" type="button" onClick={onCancelQuestion} aria-label="Discard the current detected interviewer audio" title="Discard this detected audio. It will not be transcribed or sent to the backend.">Cancel</button>}
-            <button className="button secondary capture-action compact-button" type="button" onClick={onStop} aria-label="Stop interview audio capture" title="Stop interview audio capture">Stop</button>
+            {interviewerListening ? (
+              <>
+                {vadState === 'speech_detected' && <button className="button ghost capture-action compact-button" type="button" onClick={onFinishQuestion} aria-label="Finish the current interviewer question" title="Finalize the interviewer question now">Finish</button>}
+                {(vadState === 'speech_detected' || vadState === 'finalizing') && <button className="button ghost capture-action compact-button" type="button" onClick={onCancelQuestion} aria-label="Discard the current detected interviewer audio" title="Discard this detected audio. It will not be transcribed or sent to the backend.">Cancel</button>}
+                <button className="button secondary capture-action compact-button listening-toggle" type="button" onClick={onPauseListening} aria-label="Pause interviewer listening while you answer" title="Pause before you answer so your voice is not transcribed">Pause</button>
+              </>
+            ) : (
+              <button className="button capture-action compact-button listening-toggle" type="button" onClick={onStartListening} disabled={disabled} aria-label="Listen for the next interviewer question" title="Turn on only while the interviewer is speaking">Listen</button>
+            )}
+            <button className="button ghost capture-action compact-button" type="button" onClick={onStop} aria-label="End interview audio capture" title="Release the selected tab audio">End audio</button>
           </>
         ) : (
           <>

@@ -10,7 +10,7 @@ export class InterviewAnswerQualityService {
     const result = this.validator.validate(answer, classification, plan.minWords, plan.maxWords);
     const normalized = answer.trim();
     const reasons = [...result.reasons];
-    const warnings: string[] = [];
+    const warnings: string[] = [...(result.warnings ?? [])];
 
     if (/^(?:certainly|sure|of course|great question)[,!\s]/i.test(normalized)) {
       warnings.push('answer starts with a generic assistant greeting');
@@ -21,7 +21,7 @@ export class InterviewAnswerQualityService {
     if (plan.responseMode === 'clarification' && (!normalized.endsWith('?') || /[?].+[?]/.test(normalized))) {
       reasons.push('clarification must be one targeted question');
     }
-    if (plan.requiresOperationalDetail && !/(?:\bapply\b|\bconfigure\b|\bdeploy\b|\bexample\b|in practice|\bcheck\b|\binspect\b|\bverify\b|\bvalidate\b|\bmonitor\b|\bmeasure\b|\blogs?\b|\bmetrics?\b|\bevents?\b|\bcommand\b|\brollback\b|\brollout\b|\breadiness\b|\bcapacity\b|\bbackend\b|\blocking\b|resource requests?|ví dụ|thực tế|vận hành|triển khai|cấu hình|kiểm tra|xác minh|theo dõi|giám sát|nhật ký|quay lui|khôi phục)/iu.test(normalized)) {
+    if (plan.requiresOperationalDetail && !/(?:\bapply\b|\bconfigure\b|\bdeploy\b|\bexample\b|in practice|\bcheck\b|\binspect\b|\bverify\b|\bvalidate\b|\bmonitor\b|\bmeasure\b|\bmaintain\b|\bagents?\b|\bplugins?\b|\blogs?\b|\bmetrics?\b|\bevents?\b|\bcommand\b|\brollback\b|\brollout\b|\breadiness\b|\bcapacity\b|\bbackend\b|\bblocking\b|resource requests?|ví dụ|thực tế|vận hành|triển khai|cấu hình|kiểm tra|xác minh|theo dõi|giám sát|nhật ký|quay lui|khôi phục)/iu.test(normalized)) {
       // This is a quality signal, not a reason to hide an otherwise useful
       // streamed answer from an interviewer.
       warnings.push('answer could use a more concrete operational detail');

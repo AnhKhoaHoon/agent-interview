@@ -82,7 +82,9 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
 export class InterviewAnswerPlannerService {
   plan(classification: Classification): InterviewAnswerPlan {
     return {
-      promptVersion: 'devops-interview-answer-v3',
+      promptVersion: classification.role === 'devops'
+        ? 'devops-interview-answer-v3'
+        : 'dba-interview-answer-v1',
       responseMode: classification.responseMode,
       ...PLAN_BY_MODE[classification.responseMode]
     };

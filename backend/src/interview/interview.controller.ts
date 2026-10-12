@@ -14,10 +14,10 @@ export class InterviewController {
 
   @Post()
   @PublicEndpoint()
-  @ApiOperation({ summary: 'Create a DevOps interview session' })
+  @ApiOperation({ summary: 'Create an interview session for the selected role' })
   @ApiResponse({ status: 201 })
-  create(@Body() _body: CreateInterviewDto): ReturnType<InterviewService['create']> {
-    return this.interviews.create();
+  create(@Body() body: CreateInterviewDto): ReturnType<InterviewService['create']> {
+    return this.interviews.create(body.role);
   }
 
   @Post(':id/end')

@@ -12,6 +12,8 @@ import { InterviewRepository } from '../persistence/interview.repository';
 import { KnowledgeRetrievalService } from '../knowledge/knowledge-retrieval.service';
 import { CandidateContextService } from '../candidate-context/candidate-context.service';
 import { DEVOPS_CATEGORY_KEYWORDS } from '../roles/devops/devops-role.config';
+import { DBA_CATEGORY_KEYWORDS } from '../roles/dba/dba-role.config';
+import { InterviewRole } from '../roles/interview-role';
 import { InterviewStreamService } from '../stream/interview-stream.service';
 import { Interview, InterviewMessage } from './interview.types';
 
@@ -35,9 +37,9 @@ export class InterviewService {
     private readonly candidateContext: CandidateContextService
   ) {}
 
-  async create(): Promise<Omit<Interview, 'messages'> & { accessToken: string }> {
+  async create(role: InterviewRole = 'devops'): Promise<Omit<Interview, 'messages'> & { accessToken: string }> {
     const createdAt = new Date().toISOString();
-    const interview: Interview = { id: randomUUID(), role: 'devops', status: 'active', createdAt, messages: [] };
+    const interview: Interview = { id: randomUUID(), role, status: 'active', createdAt, messages: [] };
     const accessToken = randomBytes(32).toString('base64url');
     const accessTokenHash = createHash('sha256').update(accessToken).digest('hex');
     await this.repository.createInterview(interview, accessTokenHash);
@@ -85,7 +87,7 @@ export class InterviewService {
     const transcript = await this.addMessage(interview, 'interviewer', content, 'completed', {
       speechEndedAtMs: metadata.speechEndedAtMs
     });
-    const interpretation = this.normalizer.interpret(transcript.content);
+    const interpretation = this.normalizer.interpret(transcript.content, interview.role);
     const question = interpretation.text === transcript.content
       ? transcript
       : { ...transcript, understoodText: interpretation.text };
@@ -186,16 +188,27 @@ export class InterviewService {
         .filter((message) => message.sequenceNo < question.sequenceNo && message.status === 'completed')
         .map(({ role, content }) => ({ role, content }))
     );
-    const assessment = this.questionGate.assess(question.content, history);
+    const assessment = this.questionGate.assess(question.content, history, interview.role);
     const { classification } = assessment;
     const plan = this.answerPlanner.plan(classification);
-    const knowledge = await this.knowledge.retrieve(assessment.normalizedQuestion, classification.category);
+    const knowledgeStartedAt = Date.now();
+    const candidateContextStartedAt = Date.now();
+    const needsCandidateContext = needsCandidateContextFor(classification.type);
+    const [knowledgeResult, candidateContextResult] = await Promise.all([
+      this.knowledge.retrieve(assessment.normalizedQuestion, classification.role, classification.category)
+        .then((value) => ({ value, durationMs: Date.now() - knowledgeStartedAt })),
+      needsCandidateContext
+        ? this.candidateContext.promptContext(interview.id)
+          .then((value) => ({ value, durationMs: Date.now() - candidateContextStartedAt }))
+        : Promise.resolve({ value: undefined, durationMs: 0 })
+    ]);
+    const knowledge = knowledgeResult.value;
+    const candidateContext = candidateContextResult.value;
     this.throwIfQuestionCancelled(question.id);
-    const candidateContext = await this.candidateContext.promptContext(interview.id);
     const provider = this.providers.getConfiguredProvider();
     await this.repository.startAiResponse({
       id: randomUUID(), messageId: answer.id, provider: provider.name,
-      ...(process.env.LLM_MODEL ? { model: process.env.LLM_MODEL } : {}),
+      ...(promptModelForPersistence(classification.type) ? { model: promptModelForPersistence(classification.type) } : {}),
       promptVersion: plan.promptVersion, contextSnapshot: history
     });
     this.logger.log(JSON.stringify({
@@ -203,16 +216,24 @@ export class InterviewService {
       questionDecision: assessment.decision, isFollowUp: assessment.isFollowUp, category: classification.category,
       responseMode: classification.responseMode, level: classification.level, promptVersion: plan.promptVersion
     }));
+    const knowledgeChunks = knowledge?.chunks.slice(0, knowledgeChunkLimit(classification.type));
     const prompt = this.promptBuilder.build({
       question: assessment.normalizedQuestion, classification, history, plan,
-      ...(knowledge ? { knowledge: knowledge.chunks } : {}),
-      ...(candidateContext?.profile ? { candidateProfile: candidateContext.profile } : {}),
-      ...(candidateContext?.jobDescription ? { jobDescription: candidateContext.jobDescription } : {}),
+      ...(knowledgeChunks?.length ? { knowledge: knowledgeChunks } : {}),
+      ...(classification.type === 'experience' && candidateContext?.profile ? { candidateProfile: candidateContext.profile } : {}),
+      ...(jobDescriptionIsRelevant(classification.type) && candidateContext?.jobDescription ? { jobDescription: candidateContext.jobDescription } : {}),
       ...(answerLanguage ? { answerLanguage } : {}),
       ...(assessment.isFollowUp && assessment.referenceQuestion
         ? { followUp: { referenceQuestion: assessment.referenceQuestion } }
         : {})
     });
+    const providerStartedAt = Date.now();
+    this.logger.log(JSON.stringify({
+      event: 'answer.context_ready', interviewId: interview.id, questionId: question.id, answerMessageId: answer.id,
+      knowledgeRetrievalMs: knowledgeResult.durationMs, candidateContextMs: candidateContextResult.durationMs,
+      answerPreparationMs: providerStartedAt - startedAt, retrievedKnowledgeChunks: knowledge?.chunks.length ?? 0,
+      promptKnowledgeChunks: knowledgeChunks?.length ?? 0, candidateContextIncluded: needsCandidateContext
+    }));
     let firstTokenMs: number | undefined;
     let speechEndToFirstAnswerMs: number | undefined;
 
@@ -221,10 +242,11 @@ export class InterviewService {
       this.throwIfQuestionCancelled(question.id);
       if (firstTokenMs === undefined) {
         firstTokenMs = Date.now() - startedAt;
+        const providerFirstTokenMs = Date.now() - providerStartedAt;
         speechEndToFirstAnswerMs = question.speechEndedAtMs ? Date.now() - question.speechEndedAtMs : undefined;
         this.logger.log(JSON.stringify({
           event: 'llm.first_token', interviewId: interview.id, questionId: question.id, answerMessageId: answer.id,
-          provider: provider.name, llmFirstTokenMs: firstTokenMs,
+          provider: provider.name, endToEndFirstTokenMs: firstTokenMs, providerFirstTokenMs,
           ...(speechEndToFirstAnswerMs !== undefined ? { speechEndToFirstAnswerMs } : {})
         }));
       }
@@ -250,7 +272,8 @@ export class InterviewService {
       messageId: answer.id, firstTokenMs: firstTokenMs ?? 0, totalLatencyMs: totalMs,
       ...(speechEndToFirstAnswerMs !== undefined ? { speechEndToFirstAnswerMs } : {})
     });
-    const keywords = DEVOPS_CATEGORY_KEYWORDS[classification.category] ?? DEVOPS_CATEGORY_KEYWORDS.general;
+    const keywordMap = classification.role === 'dba' ? DBA_CATEGORY_KEYWORDS : DEVOPS_CATEGORY_KEYWORDS;
+    const keywords = keywordMap[classification.category] ?? keywordMap.general;
     this.streams.emit(interview.id, {
       type: 'answer.keywords', data: { messageId: answer.id, questionId: question.id, keywords }
     });
@@ -263,7 +286,7 @@ export class InterviewService {
     });
     this.logger.log(JSON.stringify({
       event: 'answer.completed', interviewId: interview.id, questionId: question.id, answerMessageId: answer.id,
-      provider: provider.name, llmTotalMs: totalMs,
+      provider: provider.name, answerTotalMs: totalMs, providerTotalMs: Date.now() - providerStartedAt,
       ...(speechEndToFirstAnswerMs !== undefined ? { speechEndToFirstAnswerMs } : {})
     }));
   }
@@ -328,4 +351,23 @@ export class InterviewService {
       ...(interview.endedAt ? { endedAt: interview.endedAt } : {})
     };
   }
+}
+
+function promptModelForPersistence(type: ReturnType<InterviewQuestionGateService['assess']>['classification']['type']): string | undefined {
+  if (!['definition', 'comparison', 'command'].includes(type)) return process.env.LLM_MODEL;
+  return process.env.LLM_ROUTINE_MODEL?.trim() || process.env.LLM_MODEL;
+}
+
+function needsCandidateContextFor(type: ReturnType<InterviewQuestionGateService['assess']>['classification']['type']): boolean {
+  return type === 'experience' || jobDescriptionIsRelevant(type);
+}
+
+function jobDescriptionIsRelevant(type: ReturnType<InterviewQuestionGateService['assess']>['classification']['type']): boolean {
+  return type === 'experience' || type === 'scenario' || type === 'architecture';
+}
+
+function knowledgeChunkLimit(type: ReturnType<InterviewQuestionGateService['assess']>['classification']['type']): number {
+  if (type === 'definition' || type === 'command') return 2;
+  if (type === 'comparison' || type === 'best-practice') return 3;
+  return 4;
 }

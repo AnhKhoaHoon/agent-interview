@@ -62,10 +62,29 @@ actual spend.
 5. If the provider rejects the model or the result regresses, restore the
    previous `LLM_MODEL` and recreate the backend container.
 
-The runtime uses OpenAI's Responses API with streamed output. It currently
-selects the model through `LLM_MODEL`; it does not expose a separate
-reasoning-effort environment setting. Do not add unsupported parameters merely
-because a model supports them in the wider OpenAI API.
+The runtime uses OpenAI's Responses API with streamed output. It selects the
+primary model through `LLM_MODEL` and exposes only validated backend-only
+controls: `LLM_REASONING_EFFORT`, `LLM_MAX_OUTPUT_TOKENS`, and
+`LLM_VERBOSITY`. Start
+with `low` effort and `low` verbosity for live, concise interview answers;
+evaluate representative senior scenarios before changing these values. The
+output-token cap includes reasoning tokens, so a cap that is too low can return
+an incomplete answer.
+
+`LLM_ROUTINE_MODEL` is an optional fast path for well-scoped `definition`,
+`comparison`, and `command` questions. The project keeps `LLM_MODEL` for
+troubleshooting, scenario, architecture, best-practice, and experience turns,
+where the stronger model's reasoning is more valuable. Configure a routine model
+only after it passes the same answer-quality and latency evaluation for both
+English and Vietnamese questions.
+
+For the configured production profile, `gpt-6.1-sol` answers applied and
+senior questions, while `gpt-6-luna` is restricted to bounded definitions,
+comparisons, and commands. `LLM_ROUTINE_REASONING_EFFORT`,
+`LLM_ROUTINE_MAX_OUTPUT_TOKENS`, and `LLM_ROUTINE_VERBOSITY` override the
+primary controls only for that short-answer path. This is intentionally a
+latency optimization, not a claim that the faster model is superior for an
+incident or architecture decision.
 
 ## Evaluate before deciding
 
@@ -97,6 +116,9 @@ transcript, irrelevant RAG chunk, or missing interview context.
 ## Cost and latency controls
 
 - Keep `RAG_MAX_CHUNKS` bounded so the prompt contains only relevant evidence.
+- The backend retrieves RAG and relevant candidate context in parallel. It does
+  not send a CV for routine technical definitions/commands, and it limits
+  definition prompts to the two most relevant knowledge chunks.
 - Keep definition answers short; a stronger model should improve accuracy, not
   make a simple definition verbose.
 - Preserve `LLM_TIMEOUT_MS` and `LLM_MAX_RETRIES` as bounded safety controls.

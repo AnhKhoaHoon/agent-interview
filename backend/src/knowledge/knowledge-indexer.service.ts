@@ -4,6 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { EmbeddingProviderFactory } from './embedding-provider.factory';
 import { KnowledgeRepository } from './knowledge.repository';
+import { isInterviewRole } from '../roles/interview-role';
 
 const MAX_CHARS = 1_400;
 
@@ -14,7 +15,7 @@ export class KnowledgeIndexerService {
 
   async index(): Promise<{ indexed: number; skipped: number; chunks: number }> {
     const root = process.env.KNOWLEDGE_DIRECTORY ?? '/app/knowledge';
-    const files = (await markdownFiles(root)).filter((file) => /[\\/]devops[\\/]/.test(file));
+    const files = (await markdownFiles(root)).filter((file) => /[\\/](devops|dba)[\\/]/.test(file));
     let indexed = 0; let skipped = 0; let chunks = 0;
     for (const file of files) {
       const content = await readFile(file, 'utf8');
@@ -24,10 +25,11 @@ export class KnowledgeIndexerService {
       const textChunks = chunkMarkdown(content);
       const vectors = await this.embeddings.getConfiguredProvider().embed(textChunks);
       if (vectors.length !== textChunks.length) throw new Error(`Embedding count mismatch for ${sourcePath}`);
-      const category = sourcePath.split('/')[1] ?? 'general';
+      const [roleId, category = 'general'] = sourcePath.split('/');
+      if (!isInterviewRole(roleId)) continue;
       await this.repository.replace(
-        { id: randomUUID(), category, sourcePath, sourceHash, version: sourceHash.slice(0, 12), content },
-        textChunks.map((text, chunkIndex) => ({ id: randomUUID(), chunkIndex, text, embedding: vectors[chunkIndex], metadata: { sourcePath, category, chunkIndex } }))
+        { id: randomUUID(), role: roleId, category, sourcePath, sourceHash, version: sourceHash.slice(0, 12), content },
+        textChunks.map((text, chunkIndex) => ({ id: randomUUID(), chunkIndex, text, embedding: vectors[chunkIndex], metadata: { role: roleId, sourcePath, category, chunkIndex } }))
       );
       indexed += 1; chunks += textChunks.length;
     }

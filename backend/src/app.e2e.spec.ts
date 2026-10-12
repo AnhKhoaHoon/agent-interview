@@ -55,6 +55,17 @@ describe('HTTP API integration', () => {
     expect(response.body.message).toContain('role must be one of the following values');
   });
 
+  it('creates a DBA session through the documented role selector contract', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/interviews')
+      .send({ role: 'dba' })
+      .expect(201);
+
+    expect(response.body).toEqual(expect.objectContaining({
+      id: expect.any(String), role: 'dba', status: 'active', accessToken: expect.any(String)
+    }));
+  });
+
   it('publishes the documented endpoints through Swagger', async () => {
     const response = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
     expect(response.body.paths).toEqual(

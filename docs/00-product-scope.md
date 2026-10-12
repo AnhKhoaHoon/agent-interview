@@ -4,9 +4,10 @@
 
 Agent Interview
 
-## V1 role
+## Supported interview roles
 
-DevOps Engineer
+- DevOps Engineer (`devops`)
+- Database Administrator (`dba`)
 
 ## V1 use case
 
@@ -46,7 +47,7 @@ HPA • Metrics • Scaling
 - automatic AI invocation
 - streamed answer text
 - conversation context
-- DevOps prompt/classification rules
+- role-specific prompt/classification rules
 - candidate-ready, spoken-answer guidance for each question type
 - interview history
 - latency metrics
@@ -64,7 +65,7 @@ HPA • Metrics • Scaling
 - automatic speaker identity
 - autonomous actions outside answering
 - fine-tuning pipeline
-- many interview roles
+- additional interview roles beyond DevOps and DBA
 
 ## Future roles
 

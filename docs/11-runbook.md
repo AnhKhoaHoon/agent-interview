@@ -83,9 +83,9 @@ for clients that omit the language hint and should default to Vietnamese. V1
 intentionally supports only these two languages. Restart the backend after
 changing this fallback setting.
 
-If common DevOps names are transcribed phonetically (for example `Docker` as a
+If common role-specific names are transcribed phonetically (for example `Docker` as a
 Vietnamese-sounding word), confirm the Side Panel mode matches the spoken
-sentence. The backend sends a selected-language DevOps glossary to STT to
+sentence. The backend sends a selected-language glossary matching the session role to STT to
 preserve technical spellings; it does not correct arbitrary words that were not
 audible in the captured tab audio.
 

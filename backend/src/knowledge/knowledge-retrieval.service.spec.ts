@@ -32,7 +32,7 @@ describe('KnowledgeRetrievalService', () => {
       { sourcePath: 'devops/kubernetes/README.md', category: 'kubernetes', text: 'Pod.', score: 0.99 }
     ]);
 
-    await expect(service.retrieve('Docker là gì?', 'docker')).resolves.toEqual(expect.objectContaining({
+    await expect(service.retrieve('Docker là gì?', 'devops', 'docker')).resolves.toEqual(expect.objectContaining({
       chunks: [expect.objectContaining({ category: 'docker' })]
     }));
   });
@@ -41,7 +41,7 @@ describe('KnowledgeRetrievalService', () => {
     const service = retrievalService([
       { sourcePath: 'devops/aws/README.md', category: 'aws', text: 'AWS.', score: 0.95 }
     ]);
-    await expect(service.retrieve('Docker là gì?', 'docker')).resolves.toBeUndefined();
+    await expect(service.retrieve('Docker là gì?', 'devops', 'docker')).resolves.toBeUndefined();
   });
 
   it('allows an explicit related knowledge category for a narrow classified tool', async () => {
@@ -49,7 +49,7 @@ describe('KnowledgeRetrievalService', () => {
     const service = retrievalService([
       { sourcePath: 'devops/cicd/README.md', category: 'cicd', text: 'Argo CD uses GitOps.', score: 0.95 }
     ]);
-    await expect(service.retrieve('Argo CD là gì?', 'argocd')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
+    await expect(service.retrieve('Argo CD là gì?', 'devops', 'argocd')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
   });
 
   it('allows Terraform knowledge for an IaC question when the dedicated card is not the top match', async () => {
@@ -57,7 +57,7 @@ describe('KnowledgeRetrievalService', () => {
     const service = retrievalService([
       { sourcePath: 'devops/terraform/README.md', category: 'terraform', text: 'State and reviewed plans.', score: 0.95 }
     ]);
-    await expect(service.retrieve('What is Infrastructure as Code?', 'iac')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
+    await expect(service.retrieve('What is Infrastructure as Code?', 'devops', 'iac')).resolves.toEqual(expect.objectContaining({ chunks: expect.any(Array) }));
   });
 
   it('retrieves the Azure card and permits directly related Azure operational context', async () => {
@@ -66,7 +66,7 @@ describe('KnowledgeRetrievalService', () => {
       { sourcePath: 'devops/azure/README.md', category: 'azure', text: 'AKS uses workload identities for Azure access.', score: 0.95 },
       { sourcePath: 'devops/networking/README.md', category: 'networking', text: 'Trace DNS and routes.', score: 0.89 }
     ]);
-    await expect(service.retrieve('Why cannot my AKS workload reach Key Vault?', 'azure')).resolves.toEqual(expect.objectContaining({
+    await expect(service.retrieve('Why cannot my AKS workload reach Key Vault?', 'devops', 'azure')).resolves.toEqual(expect.objectContaining({
       chunks: [expect.objectContaining({ category: 'azure' }), expect.objectContaining({ category: 'networking' })]
     }));
   });
@@ -77,8 +77,20 @@ describe('KnowledgeRetrievalService', () => {
     const azureChunk = { sourcePath: 'devops/azure/README.md', category: 'azure', text: 'Azure Logic Apps starts workflows from triggers and connectors.', score: 0.68 };
     const service = retrievalService([azureChunk], [{ ...azureChunk, keywordScore: 0.8 }]);
 
-    await expect(service.retrieve('What is Azure Logic Apps?', 'azure')).resolves.toEqual(expect.objectContaining({
+    await expect(service.retrieve('What is Azure Logic Apps?', 'devops', 'azure')).resolves.toEqual(expect.objectContaining({
       chunks: [expect.objectContaining({ category: 'azure', text: azureChunk.text })]
+    }));
+  });
+
+  it('keeps DBA retrieval within the DBA categories', async () => {
+    process.env.RAG_MIN_SIMILARITY = '0.72';
+    const service = retrievalService([
+      { sourcePath: 'dba/postgresql/README.md', category: 'postgresql', text: 'PITR needs a base backup and retained WAL.', score: 0.95 },
+      { sourcePath: 'devops/docker/README.md', category: 'docker', text: 'Container.', score: 0.99 }
+    ]);
+
+    await expect(service.retrieve('How does PostgreSQL PITR work?', 'dba', 'postgresql')).resolves.toEqual(expect.objectContaining({
+      chunks: [expect.objectContaining({ category: 'postgresql' })]
     }));
   });
 });

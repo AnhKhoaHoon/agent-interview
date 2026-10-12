@@ -157,6 +157,15 @@ context may be replaced or removed from the authenticated Side Panel.
 - prompt/RAG improvement
 
 ## Phase 13 - Additional roles
+
+Phase 13 begins with the supported `dba` role alongside `devops`. Interview
+creation validates the selected role; the Side Panel locks its role selector
+once a session starts. Classification, transcript glossary, prompt instructions,
+RAG retrieval, and knowledge indexing are role-scoped. Migration 003 expands
+the persisted role constraints. The first DBA taxonomy covers PostgreSQL,
+MySQL, SQL Server, Oracle, backup/recovery, replication/HA, performance,
+database security, and troubleshooting. Additional roles remain future work:
+
 - backend
 - frontend
 - QA

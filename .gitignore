@@ -1,4 +1,5 @@
 .env
+.env.server
 backend/node_modules
 backend/dist
 backend/coverage

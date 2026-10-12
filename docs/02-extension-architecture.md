@@ -65,6 +65,14 @@ extension/
 - disconnected
 - error
 
+## Interview role selection
+
+Before **Start session**, the compact header exposes a role selector with
+**DevOps** and **DBA**. The selected value is sent only in `POST /interviews`.
+It becomes part of the persisted session and is locked for that session, so
+messages, STT terminology, RAG retrieval, and answer events cannot switch role
+mid-conversation. End the session to choose another role.
+
 Phase 2 implements the text-only subset: `idle`, `connected`, `thinking`, `streaming`, and `error`.
 
 Phase 3 capture state is independent of chat state and uses: `requesting_permission`, `connecting`, `listening`, `stopped`, and `error`.
@@ -91,6 +99,14 @@ Phase 3 capture state is independent of chat state and uses: `requesting_permiss
 
 ## Phase 4 VAD and segmentation
 
+- Selected-tab capture and interviewer listening are separate states. After
+  **Audio** connects the authorized tab, the interviewer-listening gate is
+  closed by default. **Listen** starts local VAD/STT eligibility for the next
+  interviewer turn; **Pause** stops the VAD pipeline while retaining the
+  authorized tab stream for a later turn. This prevents local candidate speech
+  from being uploaded when a conferencing tab mixes both sides of the call.
+  Pause discards an unfinished local utterance, so **Finish** is used first
+  when the interviewer question must be retained.
 - Voice activity state is shown independently as `Listening`, `Speech detected`, and `Finalizing`.
 - While `Speech detected` is active, **Finish** is an explicit end-of-question action. It finalizes only the current utterance and leaves selected-tab capture running for the next question; the automatic silence timeout remains the fallback. **Cancel** discards the currently detected local audio (including during the brief finalizing window), sends nothing to STT or the backend, and returns VAD to listening. After STT has produced a visible transcript, **Cancel question** removes the incorrect transcript and its correlated answer, aborts the backend stream where possible, and leaves capture running for the next turn.
 - A finalized in-memory audio segment is emitted once per utterance. It is not sent to the backend in this phase.

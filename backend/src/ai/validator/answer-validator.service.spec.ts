@@ -18,4 +18,11 @@ describe('AnswerValidatorService', () => {
     expect(result.valid).toBe(false);
     expect(result.reasons).toContain('experience answer contains unverified first-person claims');
   });
+
+  it('keeps a complete answer when it slightly exceeds the preferred length', () => {
+    const answer = Array.from({ length: 70 }, () => 'word').join(' ');
+    const result = new AnswerValidatorService().validate(answer, { ...classification, type: 'definition', responseMode: 'technical_definition' }, 18, 55);
+
+    expect(result).toEqual(expect.objectContaining({ valid: true, warnings: ['answer exceeds the desired word range'] }));
+  });
 });

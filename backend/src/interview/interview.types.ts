@@ -1,3 +1,5 @@
+import { InterviewRole } from '../roles/interview-role';
+
 export type InterviewStatus = 'active' | 'ended';
 export type MessageRole = 'interviewer' | 'assistant';
 export type MessageStatus = 'completed' | 'streaming' | 'failed';
@@ -20,7 +22,7 @@ export interface InterviewMessage {
 
 export interface Interview {
   id: string;
-  role: 'devops';
+  role: InterviewRole;
   status: InterviewStatus;
   createdAt: string;
   endedAt?: string;

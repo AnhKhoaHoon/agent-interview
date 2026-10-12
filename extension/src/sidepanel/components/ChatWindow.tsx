@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import type { ChatMessage } from '../../types/interview';
+import type { ChatMessage, InterviewRole } from '../../types/interview';
 import { ChatBubble } from './ChatBubble';
 
 const BOTTOM_THRESHOLD_PX = 72;
@@ -7,12 +7,13 @@ const BOTTOM_THRESHOLD_PX = 72;
 interface ChatWindowProps {
   messages: ChatMessage[];
   hasSession: boolean;
+  role: InterviewRole;
   onRetryTranscription?: (messageId: string) => void;
   onRetryAnswer?: (questionId: string) => void;
   onCancelQuestion?: (questionId: string) => void;
 }
 
-export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetryAnswer, onCancelQuestion }: ChatWindowProps): JSX.Element {
+export function ChatWindow({ messages, hasSession, role, onRetryTranscription, onRetryAnswer, onCancelQuestion }: ChatWindowProps): JSX.Element {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -46,7 +47,7 @@ export function ChatWindow({ messages, hasSession, onRetryTranscription, onRetry
                 <span className="chat-role-avatar" aria-hidden="true">AI</span>
                 <span><h3>AI answer</h3><small>Candidate-ready answer</small></span>
               </header>
-              <p>A concise DevOps answer will stream here, linked to that question.</p>
+              <p>A concise {role === 'dba' ? 'DBA' : 'DevOps'} answer will stream here, linked to that question.</p>
             </article>
             <p className="preview-footnote">Listen → Transcribe → Answer → Continue</p>
           </section>

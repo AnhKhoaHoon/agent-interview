@@ -9,7 +9,7 @@ For a Linux-first command-by-command setup guide, see
 
 ## Current deployment status
 
-The implemented product currently reaches Phase 11 of the roadmap:
+The implemented product currently reaches the initial Phase 13 role expansion:
 
 - tab-audio capture, VAD, transcription, automatic answers, SSE streaming, and
   bounded conversation context are implemented;
@@ -21,10 +21,12 @@ The implemented product currently reaches Phase 11 of the roadmap:
   backup/restore tools are implemented;
 - the runtime image contains production dependencies only and runs as the
   unprivileged `node` user.
-- curated DevOps knowledge is indexed explicitly into pgvector and is added to
-  an answer prompt only when the retrieved topic and similarity are relevant.
+- curated DevOps and DBA knowledge is indexed explicitly into pgvector and is
+  added only when the session role, retrieved topic, and similarity are relevant.
 - a per-interview CV/profile and optional job description can supply verified
   candidate facts without storing raw upload files.
+- the session can be created for either DevOps or DBA; its role controls STT
+  vocabulary, classification, prompt policy, and RAG retrieval.
 
 Therefore:
 
@@ -112,9 +114,19 @@ PORT=3000
 
 LLM_PROVIDER=openai
 LLM_API_KEY=<your-backend-only-openai-key>
-LLM_MODEL=gpt-5
+LLM_MODEL=gpt-6.1-sol
 LLM_TIMEOUT_MS=15000
 LLM_MAX_RETRIES=2
+# Fast, concise live-interview defaults. These remain backend-only.
+LLM_REASONING_EFFORT=low
+LLM_MAX_OUTPUT_TOKENS=600
+LLM_VERBOSITY=low
+# Lower-latency model for definition/comparison/command questions only.
+# Complex interview turns remain on gpt-6.1-sol.
+LLM_ROUTINE_MODEL=gpt-6-luna
+LLM_ROUTINE_REASONING_EFFORT=low
+LLM_ROUTINE_MAX_OUTPUT_TOKENS=320
+LLM_ROUTINE_VERBOSITY=low
 
 STT_PROVIDER=openai
 STT_API_KEY=<your-backend-only-openai-key>
@@ -316,8 +328,9 @@ ID can change; update CORS and recreate the backend again.
 1. Open a normal interview web page such as a Google Meet tab. Chrome internal
    pages such as `chrome://extensions` cannot be captured.
 2. Click the **Agent Interview** toolbar icon while the interview tab is active.
-3. Select **Start session**. The extension creates the interview and opens its
-   SSE connection.
+3. Select **DevOps** or **DBA**, then select **Start session**. The extension
+   creates a role-bound interview and opens its SSE connection. The role is
+   locked until the session ends.
 4. Select **Start capture**.
 5. In Chrome's picker, select only the interview tab and enable **Share tab
    audio**.
@@ -456,6 +469,13 @@ are removed.
 | `LLM_MODEL` | OpenAI LLM model | No | Validate availability before release |
 | `LLM_TIMEOUT_MS` | LLM request timeout | No | Applies to configured LLM provider |
 | `LLM_MAX_RETRIES` | Safe initial provider retries | No | Defaults to `2`; streamed output is not replayed by application code |
+| `LLM_REASONING_EFFORT` | Primary-model reasoning depth | No | `minimal`, `low`, `medium`, or `high`; use `low` for responsive interview answers and measure difficult scenarios before lowering further |
+| `LLM_MAX_OUTPUT_TOKENS` | Upper bound for visible and reasoning tokens | No | `600` bounds latency/cost while allowing the answer plans in this project; a too-low limit can create an incomplete response |
+| `LLM_VERBOSITY` | Requested answer detail | No | `low`, `medium`, or `high`; the prompt still enforces the required technical answer points |
+| `LLM_ROUTINE_MODEL` | Faster model for routine questions | No | Used only for definitions, comparisons, and commands; incidents, scenarios, architecture, and experience stay on `LLM_MODEL` |
+| `LLM_ROUTINE_REASONING_EFFORT` | Routine-model reasoning depth | No | Overrides the primary reasoning setting for the routine path only |
+| `LLM_ROUTINE_MAX_OUTPUT_TOKENS` | Routine-model output budget | No | Keep sufficient for the requested word range; `320` is the tested starting point for concise answers |
+| `LLM_ROUTINE_VERBOSITY` | Routine-model answer detail | No | Usually `low` for spoken live-interview answers |
 | `STT_PROVIDER` | STT provider selection | No | Current runtime supports OpenAI |
 | `STT_API_KEY` | STT credential | Yes | Backend only |
 | `STT_MODEL` | Transcription model | No | Validate supported audio behavior |
@@ -643,6 +663,111 @@ Run with production-equivalent networking and configuration:
   extension versions and use staged extension rollout where available.
 - After rollback, verify the original symptom and all critical user paths; do
   not rely only on deployment status.
+
+## GitHub Actions deployment to one Linux server
+
+The repository includes `.github/workflows/deploy-backend.yml`. It is a
+single-server delivery path for the backend, not a claim of high availability.
+On a push to `main` that changes backend code, curated knowledge, the server
+Compose manifest, or the workflow, it performs the following ordered steps:
+
+1. run backend `lint`, tests, and build;
+2. build one backend image and publish it to GitHub Container Registry (GHCR)
+   with both the commit SHA and `main` tags;
+3. after the GitHub `production` environment gate, send only the server Compose
+   manifest over SSH;
+4. instruct the server to pull and run the exact commit-SHA image, wait for the
+   readiness endpoint, then refresh the changed knowledge index.
+
+The running server always uses the SHA tag, never the mutable `main` tag. The
+workflow pins its GitHub Actions by full commit SHA and uses strict SSH host-key
+checking. If the selected default branch is not `main`, change the branch filter
+in the workflow deliberately before enabling it.
+
+### Prepare the server once
+
+Use a dedicated non-root deployment account with SSH key authentication. The
+account must be permitted to run Docker Compose; membership in the Docker group
+is effectively privileged access, so restrict SSH access and protect that key.
+Install Docker Engine and Docker Compose v2, create an explicit deployment
+directory, and leave database and Redis ports unpublished. A reverse proxy on
+the same host may forward HTTPS/SSE traffic to `127.0.0.1:3000`.
+
+From the checked-out repository, copy the server environment template to the
+server once:
+
+```bash
+scp .env.server.example deploy@SERVER:/opt/agent-interview/.env.server
+ssh deploy@SERVER
+chmod 600 /opt/agent-interview/.env.server
+editor /opt/agent-interview/.env.server
+```
+
+Replace every placeholder, use a strong distinct PostgreSQL password and
+metrics token, URL-encode reserved characters only in `DATABASE_URL`, set the
+exact Chrome extension origin in `CORS_ORIGINS`, and keep this file on the
+server. It is ignored by Git and is never copied by the workflow.
+
+If the GHCR package is private, authenticate Docker on the server once using a
+read-only package token for the image owner:
+
+```bash
+docker login ghcr.io
+```
+
+Do this interactively or through the server's secret-management procedure; do
+not put the registry pull token into repository files or GitHub workflow logs.
+The package may instead be made public if that matches the project's security
+policy.
+
+### Configure GitHub before the first deployment
+
+Create a GitHub Environment named `production`. Restrict it to the `main`
+branch and enable required review when an approval gate is appropriate. Add
+these **environment secrets**, not repository files:
+
+| Secret | Value |
+| --- | --- |
+| `DEPLOY_HOST` | Server DNS name or IP address. |
+| `DEPLOY_USER` | Dedicated deployment account name. |
+| `DEPLOY_PATH` | Absolute directory, for example `/opt/agent-interview`. |
+| `DEPLOY_SSH_PRIVATE_KEY` | Private key whose public half is in the server account's `authorized_keys`. |
+| `DEPLOY_KNOWN_HOSTS` | Verified `known_hosts` line for the server SSH host key. |
+
+Obtain the host-key value from a trusted server-console/fingerprint check; do
+not blindly trust an `ssh-keyscan` result from an unverified network. GitHub
+environments can gate deployment and scope these secrets until approval.
+
+The workflow uses the repository `GITHUB_TOKEN` with `packages: write` only to
+publish to GHCR. If package publishing is blocked, verify the repository's
+Actions/package permissions and the package access policy; do not replace it
+with a broad personal token by default.
+
+### Deployment and rollback behavior
+
+The workflow copies `docker-compose.server.yml`, but never `.env.server`. It
+starts PostgreSQL and Redis only on the Compose network and binds backend port
+3000 to loopback. Put a TLS-aware reverse proxy in front of that loopback port;
+configure it for SSE buffering/timeouts as described above.
+
+The knowledge index runs after readiness. An invalid embedding credential or
+indexing failure makes the workflow fail visibly, while the newly started
+backend remains available. Correct the credential, run the index again, and
+confirm RAG logs before declaring the knowledge update complete.
+
+For an application rollback, select a known-good commit SHA and run on the
+server:
+
+```bash
+cd /opt/agent-interview
+BACKEND_IMAGE=ghcr.io/OWNER/REPOSITORY/backend:KNOWN_GOOD_SHA \
+  docker compose --env-file .env.server -f docker-compose.server.yml up -d --no-build
+```
+
+Only roll back to a release whose migrations remain compatible with the current
+database. Re-run health checks, a permitted interview smoke test, and relevant
+knowledge indexing deliberately; a database restore is not the normal rollback
+mechanism.
 
 ## Common deployment failures
 

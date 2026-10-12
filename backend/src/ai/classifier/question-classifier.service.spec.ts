@@ -51,4 +51,25 @@ describe('QuestionClassifierService', () => {
   ])('uses senior answer depth for an explicit production question: %s', (question) => {
     expect(service.classify(question)).toMatchObject({ level: 'senior' });
   });
+
+  it('classifies a DBA recovery question without using the DevOps taxonomy', () => {
+    expect(service.classify('How would you test PostgreSQL point-in-time recovery for a production database?', 'dba')).toMatchObject({
+      role: 'dba', category: 'postgresql', type: 'scenario', level: 'senior', responseMode: 'technical_scenario'
+    });
+  });
+
+  it.each([
+    ['How does Db2 LUW HADR work?', 'db2-luw', 'definition'],
+    ['How would you migrate Db2 LUW to Amazon RDS for Db2?', 'db2-luw', 'scenario'],
+    ['How do you troubleshoot Db2 pureScale lock contention?', 'db2-luw', 'troubleshooting']
+  ])('classifies DB2 LUW question %s into the Db2 knowledge category', (question, category, type) => {
+    expect(service.classify(question, 'dba')).toMatchObject({ role: 'dba', category, type });
+  });
+
+  it.each([
+    ['Write a MySQL query to find duplicate customer emails.', 'mysql'],
+    ['Viết câu SQL tìm các email bị trùng trong MySQL.', 'mysql']
+  ])('treats DBA SQL coding prompt as a command: %s', (question, category) => {
+    expect(service.classify(question, 'dba')).toMatchObject({ role: 'dba', category, type: 'command', responseMode: 'technical_command' });
+  });
 });

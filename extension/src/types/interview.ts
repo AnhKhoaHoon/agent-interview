@@ -1,12 +1,13 @@
 export type PanelStatus = 'idle' | 'connected' | 'thinking' | 'streaming' | 'error';
 export type ChatRole = 'interviewer' | 'assistant';
 export type TranscriptionLanguage = 'vi' | 'en';
+export type InterviewRole = 'devops' | 'dba';
 
 export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
-  /** Backend interpretation of a recognized DevOps term; content remains the raw STT transcript. */
+  /** Backend interpretation of a recognized role-specific term; content remains the raw STT transcript. */
   understoodText?: string;
   questionId?: string;
   keywords?: string[];
@@ -16,7 +17,7 @@ export interface ChatMessage {
 
 export interface InterviewSessionSummary {
   id: string;
-  role: 'devops';
+  role: InterviewRole;
   status: 'active' | 'ended';
   createdAt: string;
   endedAt?: string;

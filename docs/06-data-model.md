@@ -7,7 +7,7 @@ recorded in `schema_migrations`; `npm run db:migrate` applies pending files in
 lexical order under an advisory lock.
 
 - id UUID PK
-- role VARCHAR
+- role VARCHAR (`devops` or `dba`)
 - status VARCHAR
 - started_at TIMESTAMP
 - ended_at TIMESTAMP
