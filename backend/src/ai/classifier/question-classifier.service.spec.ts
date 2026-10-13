@@ -35,6 +35,7 @@ describe('QuestionClassifierService', () => {
     ['How would you monitor a production GKE service?', 'gcp', 'scenario', 'technical_scenario'],
     ['How would you troubleshoot a microservice dependency timeout?', 'microservices', 'troubleshooting', 'technical_troubleshooting'],
     ['How would you secure a CI/CD software supply chain?', 'devsecops', 'scenario', 'technical_scenario'],
+    ['As a senior engineer, design a CI/CD pipeline with Jenkins, GitLab CI, Kubernetes, and Argo CD.', 'cicd', 'architecture', 'technical_architecture'],
     ['How would you troubleshoot an Azure Key Vault access failure?', 'azure', 'troubleshooting', 'technical_troubleshooting'],
     ['How would you deploy an AKS service safely with Azure Pipelines?', 'azure', 'scenario', 'technical_scenario'],
     ['How would you troubleshoot Azure Pipelines service connection failure?', 'azure', 'troubleshooting', 'technical_troubleshooting'],

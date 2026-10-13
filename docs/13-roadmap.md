@@ -68,7 +68,7 @@ versioned mode-specific answer planner, and a quality gate. This improves
 candidate-ready DevOps answers without enabling RAG, changing the extension
 API, or adding another role.
 
-Prompt version `devops-interview-answer-v3` calibrates answer depth to the
+Prompt version `devops-interview-answer-v4` calibrates answer depth to the
 question: direct definitions stop after the definition and one essential
 distinction, while applied modes retain theory-to-practice delivery and flag
 purely theoretical responses without operational detail. A quality warning must

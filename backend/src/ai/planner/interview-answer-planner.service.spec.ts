@@ -8,11 +8,11 @@ describe('InterviewAnswerPlannerService', () => {
       role: 'devops', category: 'kubernetes', type: 'troubleshooting', level: 'middle', intent: 'CrashLoopBackOff', responseMode: 'technical_troubleshooting'
     });
 
-    expect(plan).toMatchObject({ promptVersion: 'devops-interview-answer-v3', minWords: 60, maxWords: 120, requiresOperationalDetail: true });
-    expect(plan.requiredPoints).toEqual(expect.arrayContaining(['likely causes', 'ordered checks', 'remediation', 'verification']));
+    expect(plan).toMatchObject({ promptVersion: 'devops-interview-answer-v4', minWords: 60, maxWords: 120, requiresOperationalDetail: true });
+    expect(plan.requiredPoints).toEqual(expect.arrayContaining(['impact or containment', 'evidence-driven diagnosis', 'remediation', 'workload and service verification']));
     expect(plan.deliverySteps).toEqual(expect.arrayContaining([
-      'give ordered commands, logs, metrics, or configuration checks',
-      'fix the isolated cause and verify recovery'
+      'give ordered, high-signal checks and say what each log, event, metric, or configuration check establishes',
+      'apply the smallest reversible fix only after evidence supports a cause; use rollback only when the release correlation is clear'
     ]));
   });
 

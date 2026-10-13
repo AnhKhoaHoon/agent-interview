@@ -75,7 +75,7 @@ hash is stored. Production mode additionally requires strict CORS, Redis rate
 limiting, and protected Prometheus metrics. The multi-stage image installs only
 runtime dependencies and runs as the unprivileged `node` user.
 
-The versioned `devops-interview-answer-v3` plan calibrates answer depth to the
+The versioned `devops-interview-answer-v4` plan calibrates answer depth to the
 question. Direct definitions stay concise; applied modes move from principle to
 practical operation and verification. The runtime quality gate warns on an
 applied answer that remains purely theoretical, and deterministic fixtures cover

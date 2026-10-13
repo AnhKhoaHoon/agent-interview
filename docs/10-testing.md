@@ -116,7 +116,7 @@ terms, selected-language prompts, controlled phonetic aliases, and Vietnamese
 comparison wording. The original STT text must remain visible even when a
 controlled interpretation is passed to answer orchestration.
 
-The `devops-interview-answer-v3` deterministic evaluation suite covers
+The `devops-interview-answer-v4` deterministic evaluation suite covers
 definition, comparison, troubleshooting, scenario, architecture, command, and
 behavioral modes. Every generated prompt must include its calibrated answer
 flow, and every deterministic fixture answer must pass the same runtime quality

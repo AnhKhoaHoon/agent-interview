@@ -78,8 +78,14 @@ export class PromptBuilderService {
     if (category === 'microservices') {
       return 'Microservices accuracy: do not assume more services or a shared database are automatically better. State bounded ownership and failure behavior. Distinguish at-least-once delivery from exactly-once processing, and use idempotency where retries can duplicate work. For distributed troubleshooting, correlate the request with trace context, logs, metrics, and dependency signals.';
     }
+    if (category === 'cicd') {
+      return 'CI/CD delivery accuracy: build, scan, sign where supported, and publish one immutable image digest; promote that exact digest instead of rebuilding per environment or deploying a mutable tag. Jenkins or GitLab CI runs CI jobs, while Argo CD reconciles reviewed Git desired state into Kubernetes and does not replace build or test stages. Separate development automation from production approval and least-privilege access. A rollout must use explicit health and service-level promotion signals, with a halt or rollback path to a known-good Git revision and digest. Database changes require an independently tested backward-compatible expand/contract plan; an application image rollback alone may not be safe.';
+    }
     if (category === 'devsecops') {
       return 'DevSecOps accuracy: a passed scanner is not proof of security. Distinguish a finding from an exploitable incident, prioritize exposed reachability and business impact, and give exceptions an owner, expiry, and compensating control. Prefer short-lived, scoped workload identity over stored long-lived credentials. Tie software supply-chain claims to pinned inputs, provenance, and a verification policy.';
+    }
+    if (category === 'kubernetes' && type === 'troubleshooting') {
+      return 'Kubernetes troubleshooting accuracy: CrashLoopBackOff is a restart-backoff symptom, not the root cause. First assess whether traffic or multiple replicas are affected, and preserve evidence before deleting or restarting Pods. Inspect `kubectl describe pod`, the previous container log, the termination reason and exit code, relevant Events, and the rollout revision. Distinguish OOMKilled/resource pressure, startup command or configuration errors, dependency/DNS failures, and probe behavior: liveness can restart a container, while readiness removes it from endpoints without restarting it. Apply the smallest reversible fix; roll back only when the failing revision is clearly correlated. Verify restart count stabilizes, readiness and endpoints recover, and service error or latency signals return to normal. Never expose Secret values or claim a cause without evidence.';
     }
     return 'Keep each example and operational detail specific to the current DevOps category. Do not introduce adjacent tools or workflows unless the interviewer explicitly asks about them.';
   }

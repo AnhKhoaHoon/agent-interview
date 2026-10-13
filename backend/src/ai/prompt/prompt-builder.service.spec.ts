@@ -28,7 +28,7 @@ describe('PromptBuilderService', () => {
     expect(prompt.input).toContain('Answer language: match the current interviewer question exactly');
     expect(prompt.input).toContain('Previous question');
     expect(prompt.input).toContain('What is Terraform state?');
-    expect(prompt.input).toContain('Prompt version: devops-interview-answer-v3');
+    expect(prompt.input).toContain('Prompt version: devops-interview-answer-v4');
     expect(prompt.input).toContain('Answer flow:');
     expect(prompt.input).toContain('define the named concept in plain spoken language');
     expect(prompt.input).toContain('no unsolicited workflow, example, or checklist');
@@ -47,6 +47,36 @@ describe('PromptBuilderService', () => {
     expect(prompt.instructions).toContain('distinguish an image');
     expect(prompt.instructions).toContain('Image tags are mutable references');
     expect(prompt.instructions).toContain('do not introduce CI/CD, registries, Kubernetes');
+  });
+
+  it('keeps a senior CI/CD design grounded in immutable GitOps delivery', () => {
+    const classification = {
+      role: 'devops' as const, category: 'cicd', type: 'architecture' as const,
+      level: 'senior' as const, intent: 'Design a CI/CD platform', responseMode: 'technical_architecture' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'Design a CI/CD pipeline with Jenkins, GitLab CI, Kubernetes, and Argo CD.', classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.instructions).toContain('build, scan, sign where supported, and publish one immutable image digest');
+    expect(prompt.instructions).toContain('Argo CD reconciles reviewed Git desired state into Kubernetes');
+    expect(prompt.instructions).toContain('backward-compatible expand/contract plan');
+  });
+
+  it('makes Kubernetes troubleshooting evidence-driven and interview-ready', () => {
+    const classification = {
+      role: 'devops' as const, category: 'kubernetes', type: 'troubleshooting' as const,
+      level: 'middle' as const, intent: 'Diagnose CrashLoopBackOff', responseMode: 'technical_troubleshooting' as const
+    };
+    const prompt = new PromptBuilderService().build({
+      question: 'How would you troubleshoot CrashLoopBackOff?', classification, history: [], plan: planner.plan(classification), answerLanguage: 'en'
+    });
+
+    expect(prompt.instructions).toContain('CrashLoopBackOff is a restart-backoff symptom, not the root cause');
+    expect(prompt.instructions).toContain('kubectl describe pod');
+    expect(prompt.instructions).toContain('liveness can restart a container, while readiness removes it from endpoints without restarting it');
+    expect(prompt.input).toContain('impact or containment');
+    expect(prompt.input).toContain('rollback only when the release correlation is clear');
   });
 
   it('keeps Azure identity examples precise and Azure-specific', () => {

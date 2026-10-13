@@ -179,7 +179,7 @@ Each plan defines:
 - quality checks appropriate to the mode; and
 - a maximum word count (120 words, or 30 for a clarification).
 
-The DevOps plan is versioned as `devops-interview-answer-v3`; the DBA plan is
+The DevOps plan is versioned as `devops-interview-answer-v4`; the DBA plan is
 `dba-interview-answer-v1`. This allows a
 future prompt revision to be evaluated against the same fixtures without
 changing classifier or provider code.
@@ -199,7 +199,7 @@ The exact sequence varies by `responseMode`. A direct definition is an explicit
 exception: it defines the named term and may add one essential distinction or
 relevance sentence, then stops. It must not be padded with a workflow, example,
 or verification step that was not requested. For applied answers, troubleshooting uses
-failure domains -> ordered checks -> remediation and verification, while a
+impact/containment -> evidence-driven failure domains -> ordered checks -> conditional remediation -> workload and service verification, while a
 comparison uses model difference -> operational consequence -> choice under a
 specific constraint. Behavioral answers keep STAR and the verified-facts rule
 instead of forcing a technical definition.
@@ -254,7 +254,7 @@ the earlier answer.
 | --- | --- |
 | `technical_definition` | what it is -> one essential distinction or relevance sentence -> stop; no unsolicited workflow, example, verification, or checklist |
 | `technical_comparison` | key distinction -> trade-offs -> when to choose each |
-| `technical_troubleshooting` | likely causes -> ordered checks -> remediation and verification |
+| `technical_troubleshooting` | impact/containment -> evidence-driven failure domains -> ordered checks -> conditional remediation -> workload and service verification |
 | `technical_scenario` / `technical_architecture` | recommendation -> components/steps -> trade-offs -> validation |
 | `technical_command` | command/check -> what to inspect -> safe next action |
 | `behavioral_experience` | verified STAR answer, or labelled adaptable STAR outline when no profile fact exists |

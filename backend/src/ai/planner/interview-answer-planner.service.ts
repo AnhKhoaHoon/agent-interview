@@ -23,10 +23,15 @@ const PLAN_BY_MODE: Record<ResponseMode, PlanTemplate> = {
     maxWords: 90
   },
   technical_troubleshooting: {
-    opening: 'Lead with the safest first diagnostic check.',
-    deliverySteps: ['name the likely failure domains', 'give ordered commands, logs, metrics, or configuration checks', 'fix the isolated cause and verify recovery'],
-    requiredPoints: ['likely causes', 'ordered checks', 'remediation', 'verification'],
-    qualityChecks: ['safe sequence', 'explicit verification'],
+    opening: 'Start by scoping user impact and preserving evidence; use a reversible containment action only when the service is degraded.',
+    deliverySteps: [
+      'separate the observed symptom from the likely failure domains and scope the blast radius',
+      'give ordered, high-signal checks and say what each log, event, metric, or configuration check establishes',
+      'apply the smallest reversible fix only after evidence supports a cause; use rollback only when the release correlation is clear',
+      'verify both workload recovery and a user-visible service signal, then name one prevention action'
+    ],
+    requiredPoints: ['impact or containment', 'evidence-driven diagnosis', 'remediation', 'workload and service verification'],
+    qualityChecks: ['evidence before change', 'rollback is conditional', 'explicit verification'],
     requiresOperationalDetail: true,
     minWords: 60,
     maxWords: 120
@@ -83,7 +88,7 @@ export class InterviewAnswerPlannerService {
   plan(classification: Classification): InterviewAnswerPlan {
     return {
       promptVersion: classification.role === 'devops'
-        ? 'devops-interview-answer-v3'
+        ? 'devops-interview-answer-v4'
         : 'dba-interview-answer-v1',
       responseMode: classification.responseMode,
       ...PLAN_BY_MODE[classification.responseMode]

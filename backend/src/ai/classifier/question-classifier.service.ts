@@ -78,6 +78,11 @@ export class QuestionClassifierService {
     // GitLab and Jenkins in one short question is an interview comparison of
     // CI/CD tools, even if STT drops words such as "sự khác biệt".
     if (role === 'devops' && type === 'comparison' && /\bgitlab\b/i.test(question) && /\bjenkins\b/i.test(question)) return 'cicd';
+    // A delivery-design question can mention Kubernetes as the target platform,
+    // but Argo CD plus a CI engine describes the CI/CD system as a whole.
+    // Classifying it as Kubernetes would omit the CI/CD knowledge card.
+    if (role === 'devops' && /\bargo ?cd\b/i.test(question)
+      && (/\b(jenkins|gitlab(?: ci)?|ci\/cd|pipeline)\b/i.test(question))) return 'cicd';
     const matchers = role === 'dba' ? DBA_CATEGORY_MATCHERS : DEVOPS_CATEGORY_MATCHERS;
     return matchers.find(([, matcher]) => matcher.test(question))?.[0]
       ?? (type === 'troubleshooting' ? 'troubleshooting' : 'general');
