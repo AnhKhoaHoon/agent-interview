@@ -50,9 +50,9 @@ reloaded by Chrome.
 
 The backend now persists interview history and includes the Phase 9 self-hosted
 hardening boundary: per-session authorization, Redis rate limiting, strict
-production configuration, protected metrics, non-root runtime image, and
-backup/restore tooling. TLS, identity-aware public access, managed secrets, and
-scheduled restore-tested backups remain deployment responsibilities.
+production configuration, protected metrics, and non-root runtime image. TLS,
+identity-aware public access, managed secrets, and any data-retention backup
+strategy remain deployment responsibilities.
 
 To produce a loadable extension, run `npm ci && npm run build` from
 `extension/`, then load `extension/dist` as an unpacked extension in
@@ -64,7 +64,12 @@ production prerequisites, smoke test, và rollback procedure, xem
 [deployment and operation guide](docs/08-deployment.md).
 
 Để deploy backend tự động từ nhánh `main` lên một Linux server bằng GitHub
-Actions và GHCR, xem phần [GitHub Actions deployment](docs/08-deployment.md#github-actions-deployment-to-one-linux-server).
+Actions, xem phần [GitHub Actions deployment](docs/08-deployment.md#github-actions-deployment-to-one-linux-server).
+
+Luồng deploy đồng bộ source **backend, migrations và `knowledge/`** lên Linux
+server rồi chạy `docker compose build` và `up -d`; không đưa Chrome
+Extension/frontend hoặc `.env` secrets lên server. Xem chi tiết ở
+[CI/CD deploys what](docs/08-deployment.md#what-cicd-actually-puts-on-the-server).
 
 ## Read order
 

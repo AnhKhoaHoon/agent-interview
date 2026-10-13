@@ -108,7 +108,6 @@ hardening, backups, or multi-instance SSE coordination; those remain Phase 9.
 - strict CORS
 - retries/timeouts
 - logs/metrics
-- backups
 
 Phase 9 is implemented for the self-hosted V1 boundary. Creating a session
 returns a 256-bit per-interview bearer token; only its SHA-256 hash is stored,
@@ -119,10 +118,10 @@ URL. Redis provides fail-closed distributed rate limiting when enabled.
 Production mode refuses to start without an exact CORS allowlist, enabled Redis
 rate limiting, and protected Prometheus metrics. The backend adds security
 headers, structured HTTP logs, explicit provider timeouts/retries, graceful
-shutdown, PostgreSQL-aware readiness, a non-root multi-stage image, and guarded
-backup/restore scripts. Phase 9 does not replace platform TLS, a private
-database network, secret management, scheduled backups/restore drills, or an
-identity-aware edge for a public multi-user service.
+shutdown, PostgreSQL-aware readiness, and a non-root multi-stage image. Phase 9
+does not replace platform TLS, a private database network, secret management,
+scheduled backups/restore drills, or an identity-aware edge for a public
+multi-user service.
 
 ## Phase 10 - DevOps knowledge RAG
 - curated docs

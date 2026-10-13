@@ -224,9 +224,9 @@ Xóa toàn bộ database local, RAG index, interview history và stored CV/JD te
 docker compose down -v
 ```
 
-Lệnh cuối là destructive; chỉ chạy khi đã chắc chắn không cần dữ liệu. Để
-chuyển máy hoặc giữ data, backup/restore PostgreSQL theo
-[Operations Runbook](docs/11-runbook.md#backup-and-restore).
+Lệnh cuối là destructive; chỉ chạy khi đã chắc chắn không cần dữ liệu. Repository
+không kèm script backup/restore; nếu cần giữ data khi chuyển máy, dùng cơ chế
+backup của Docker host hoặc database platform và thử restore ở môi trường cô lập.
 
 ## 9. Kiểm tra source trước khi cập nhật
 

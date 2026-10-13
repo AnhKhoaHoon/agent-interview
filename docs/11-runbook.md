@@ -34,15 +34,14 @@ Check Redis readiness, `RATE_LIMIT_*` values, proxy/IP configuration, and the
 limit. Do not disable the guard to work around an outage; restore Redis or route
 to a healthy dependency.
 
-## Backup and restore
+## Database retention
 
-Schedule `scripts/backup-postgres.sh` with explicit `DATABASE_URL` and
-`BACKUP_DIR`, encrypt and retain its custom-format dump according to policy, and
-alert on failures. Test `scripts/restore-postgres.sh` in an isolated database;
-it requires an existing `BACKUP_FILE` and the explicit destructive confirmation
-`CONFIRM_RESTORE=yes`. Never perform the first restore drill against production.
-The backup script validates the dump catalog and writes a SHA-256 checksum;
-restore refuses a dump whose checksum file is missing or invalid.
+This repository intentionally does not ship backup or restore scripts. For
+local personal use, the PostgreSQL Docker volume is disposable unless the user
+chooses a separate host-level backup. For any server where interview history or
+candidate context must be retained, use the server/platform database backup
+facility and test recovery in an isolated target. Do not treat a copied Docker
+volume or a successful backup job as proof of recovery.
 
 ## Extension cannot connect
 

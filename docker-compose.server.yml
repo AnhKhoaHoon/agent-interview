@@ -24,8 +24,9 @@ services:
       retries: 10
 
   backend:
-    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE only in the deployment command}
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file:
       - .env.server

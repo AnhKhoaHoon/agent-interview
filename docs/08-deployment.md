@@ -17,8 +17,7 @@ The implemented product currently reaches the initial Phase 13 role expansion:
   and latency records are persisted in PostgreSQL;
 - versioned database migrations run before the backend starts;
 - per-interview bearer authorization, Redis rate limiting, strict production
-  configuration, protected metrics, provider retry/timeouts, and guarded
-  backup/restore tools are implemented;
+  configuration, protected metrics, and provider retry/timeouts are implemented;
 - the runtime image contains production dependencies only and runs as the
   unprivileged `node` user.
 - curated DevOps and DBA knowledge is indexed explicitly into pgvector and is
@@ -667,22 +666,48 @@ Run with production-equivalent networking and configuration:
 ## GitHub Actions deployment to one Linux server
 
 The repository includes `.github/workflows/deploy-backend.yml`. It is a
-single-server delivery path for the backend, not a claim of high availability.
-On a push to `main` that changes backend code, curated knowledge, the server
-Compose manifest, or the workflow, it performs the following ordered steps:
+single-server source-sync delivery path for the backend, not a claim of high
+availability. On a push to `main` that changes backend code, curated knowledge,
+the server Compose manifest, the Docker build context, or the workflow, it:
 
-1. run backend `lint`, tests, and build;
-2. build one backend image and publish it to GitHub Container Registry (GHCR)
-   with both the commit SHA and `main` tags;
-3. after the GitHub `production` environment gate, send only the server Compose
-   manifest over SSH;
-4. instruct the server to pull and run the exact commit-SHA image, wait for the
-   readiness endpoint, then refresh the changed knowledge index.
+1. runs backend `lint`, tests, and build;
+2. synchronises the checked-out source to the dedicated server directory;
+3. excludes `extension/`, every `.env` file, Git metadata, dependencies, build
+   output, coverage, and logs;
+4. instructs the server to run `docker compose build backend` then `up -d`;
+5. waits for readiness and refreshes the knowledge index.
 
-The running server always uses the SHA tag, never the mutable `main` tag. The
-workflow pins its GitHub Actions by full commit SHA and uses strict SSH host-key
-checking. If the selected default branch is not `main`, change the branch filter
-in the workflow deliberately before enabling it.
+The server builds from the exact repository commit checked out by that workflow
+run. This is intentionally a source-sync deployment for a private single-server
+setup. It is simpler than a registry release, but less reproducible than
+promoting an immutable CI-built image. The workflow pins GitHub Actions by full
+commit SHA and uses strict SSH host-key checking.
+
+### What CI/CD actually puts on the server
+
+```text
+repository push (backend/ or knowledge/ changes)
+                 |
+                 v
+GitHub Actions: lint -> test -> build -> rsync server-side source
+                 |
+                 v
+Linux server: docker compose build backend -> up -d
+                 |
+                 +-- PostgreSQL volume (persistent data)
+                 +-- Redis
+                 +-- backend container
+```
+
+The Chrome Extension/frontend is deliberately not copied to the server. Build
+`extension/dist` separately on the Chrome user's machine with only public
+`VITE_API_BASE_URL`. Provider credentials remain only in server-side
+`.env.server` or a secret manager.
+
+`backend/Dockerfile` copies `knowledge/` into `/app/knowledge` during the local
+server build. A knowledge-only commit therefore synchronises `knowledge/`,
+rebuilds backend, then runs `npm run knowledge:index` against the persistent
+PostgreSQL/pgvector database.
 
 ### Prepare the server once
 
@@ -693,8 +718,7 @@ Install Docker Engine and Docker Compose v2, create an explicit deployment
 directory, and leave database and Redis ports unpublished. A reverse proxy on
 the same host may forward HTTPS/SSE traffic to `127.0.0.1:3000`.
 
-From the checked-out repository, copy the server environment template to the
-server once:
+Copy the server environment template once, then keep it only on the server:
 
 ```bash
 scp .env.server.example deploy@SERVER:/opt/agent-interview/.env.server
@@ -705,26 +729,14 @@ editor /opt/agent-interview/.env.server
 
 Replace every placeholder, use a strong distinct PostgreSQL password and
 metrics token, URL-encode reserved characters only in `DATABASE_URL`, set the
-exact Chrome extension origin in `CORS_ORIGINS`, and keep this file on the
-server. It is ignored by Git and is never copied by the workflow.
-
-If the GHCR package is private, authenticate Docker on the server once using a
-read-only package token for the image owner:
-
-```bash
-docker login ghcr.io
-```
-
-Do this interactively or through the server's secret-management procedure; do
-not put the registry pull token into repository files or GitHub workflow logs.
-The package may instead be made public if that matches the project's security
-policy.
+exact extension origin in `CORS_ORIGINS`, and keep this file out of Git. The
+workflow deliberately excludes it from synchronisation.
 
 ### Configure GitHub before the first deployment
 
 Create a GitHub Environment named `production`. Restrict it to the `main`
-branch and enable required review when an approval gate is appropriate. Add
-these **environment secrets**, not repository files:
+branch and enable required review when appropriate. Add these environment
+secrets, never repository files:
 
 | Secret | Value |
 | --- | --- |
@@ -734,40 +746,50 @@ these **environment secrets**, not repository files:
 | `DEPLOY_SSH_PRIVATE_KEY` | Private key whose public half is in the server account's `authorized_keys`. |
 | `DEPLOY_KNOWN_HOSTS` | Verified `known_hosts` line for the server SSH host key. |
 
-Obtain the host-key value from a trusted server-console/fingerprint check; do
-not blindly trust an `ssh-keyscan` result from an unverified network. GitHub
-environments can gate deployment and scope these secrets until approval.
-
-The workflow uses the repository `GITHUB_TOKEN` with `packages: write` only to
-publish to GHCR. If package publishing is blocked, verify the repository's
-Actions/package permissions and the package access policy; do not replace it
-with a broad personal token by default.
+Obtain the host-key value from a trusted console/fingerprint check; do not
+blindly trust `ssh-keyscan` from an unverified network. No container-registry
+credential is required by this workflow. The server still needs access to the
+configured base image and npm registry during its Docker build.
 
 ### Deployment and rollback behavior
 
-The workflow copies `docker-compose.server.yml`, but never `.env.server`. It
-starts PostgreSQL and Redis only on the Compose network and binds backend port
-3000 to loopback. Put a TLS-aware reverse proxy in front of that loopback port;
-configure it for SSE buffering/timeouts as described above.
+The workflow synchronises source while excluding every `.env` file, including
+`.env.server`; it never changes server-side secrets. PostgreSQL and Redis remain
+on the Compose network and backend port 3000 binds to loopback. Put a TLS-aware
+reverse proxy in front of that loopback port and configure SSE buffering/timeouts
+as described above.
 
 The knowledge index runs after readiness. An invalid embedding credential or
-indexing failure makes the workflow fail visibly, while the newly started
-backend remains available. Correct the credential, run the index again, and
-confirm RAG logs before declaring the knowledge update complete.
+indexing failure makes the workflow fail visibly, while the newly started backend
+remains available. Correct the credential, run the index again, and confirm RAG
+logs before declaring the knowledge update complete.
 
-For an application rollback, select a known-good commit SHA and run on the
-server:
+### Manual server rebuild
+
+Use this only for an emergency or before GitHub Actions is configured. Copy
+only server-side source (`backend/`, `knowledge/`, `docker-compose.server.yml`
+and root Docker build files) to the dedicated directory. Do not upload
+`extension/`, local `.env`, or provider keys. Then build/restart locally:
 
 ```bash
+ssh deploy@SERVER
 cd /opt/agent-interview
-BACKEND_IMAGE=ghcr.io/OWNER/REPOSITORY/backend:KNOWN_GOOD_SHA \
-  docker compose --env-file .env.server -f docker-compose.server.yml up -d --no-build
+
+docker compose --env-file .env.server -f docker-compose.server.yml build --pull backend
+docker compose --env-file .env.server -f docker-compose.server.yml up -d --no-build --remove-orphans
+docker compose --env-file .env.server -f docker-compose.server.yml exec -T backend npm run knowledge:index
 ```
 
-Only roll back to a release whose migrations remain compatible with the current
-database. Re-run health checks, a permitted interview smoke test, and relevant
-knowledge indexing deliberately; a database restore is not the normal rollback
-mechanism.
+`docker compose up -d` alone does not rebuild source changes. Run `build` first,
+then `up -d --no-build`. The local image stays only on this server; it is never
+pushed to a registry.
+
+For rollback, rerun a known-good completed GitHub Actions workflow from the
+desired commit, or copy that reviewed source revision to the deployment
+directory, then build and restart it. Only roll back to a release whose
+migrations remain compatible with the current database. Re-run health checks, a
+permitted interview smoke test, and relevant knowledge indexing deliberately; a
+database restore is not the normal rollback mechanism.
 
 ## Common deployment failures
 
