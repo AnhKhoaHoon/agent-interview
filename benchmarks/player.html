@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevOps benchmark — audio tab</title>
+<style>
+body{font:18px/1.6 system-ui;max-width:780px;margin:50px auto;padding:0 24px;color:#172338;background:#f5f7fa}button{font:inherit;padding:12px 20px;cursor:pointer}#question{font-size:25px}#status{white-space:pre-wrap}
+</style>
+<h1>DevOps audio benchmark</h1>
+<p>Mở bản extension benchmark, bấm <b>Join benchmark</b>, rồi <b>Audio</b> → chọn chính tab này → bật <b>Share tab audio</b> → <b>Listen</b>.</p>
+<p>90 lượt phát tối đa. Giữ Side Panel hiển thị ở phía trên để đo chữ xuất hiện. Chỉ phát câu kế tiếp sau khi lượt trước đã kết thúc. Stop playback dừng phát câu mới; lượt đang chạy vẫn được ghi nhận.</p>
+<button id="start">Start playback batch</button> <button id="stop">Stop playback</button>
+<p id="question"></p><pre id="status">Chưa phát âm thanh.</pre>
+<script type="module">
+const status = document.querySelector('#status'), question = document.querySelector('#question');
+let armed = false, context, lastTrial, currentSource;
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+document.querySelector('#start').onclick = async () => {
+  context ??= new AudioContext(); await context.resume(); armed = true;
+  status.textContent = 'Đã sẵn sàng. Đợi extension kết nối và Listen…';
+};
+document.querySelector('#stop').onclick = () => { armed = false; currentSource?.stop(); status.textContent = 'Đã dừng. Lượt bị ngắt vẫn nằm trong báo cáo.'; };
+while (true) {
+  try {
+    if (armed) {
+      const trial = await (await fetch('/playback')).json();
+      if (trial && trial.trialId !== lastTrial) {
+        lastTrial = trial.trialId;
+        const audio = await (await fetch(trial.url)).arrayBuffer();
+        const decoded = await context.decodeAudioData(audio);
+        currentSource = context.createBufferSource(); currentSource.buffer = decoded; currentSource.connect(context.destination);
+        const start = context.currentTime + .15;
+        const atMs = performance.timeOrigin + performance.now();
+        const speechEndedAtMs = atMs + (start - context.currentTime) * 1000 + trial.speechEndOffsetMs;
+        await fetch('/events', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trialId:trial.trialId,kind:'playback-start',speechEndedAtMs})});
+        currentSource.start(start);
+        question.textContent = trial.question;
+        status.textContent = `${trial.trialId} · ${trial.language} · ${trial.source}\nĐang phát qua âm thanh của tab…`;
+        await new Promise(resolve => currentSource.onended = resolve);
+        status.textContent += '\nĐã phát xong, đợi transcript và câu trả lời.';
+      }
+    }
+  } catch { status.textContent = 'Không kết nối được coordinator hoặc không đọc được WAV. Kiểm tra terminal.'; }
+  await wait(250);
+}
+</script>
+</html>

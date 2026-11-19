@@ -227,6 +227,14 @@ Terraform • State • Backend • Locking
 
 ## Dev mode
 
+An explicit `npm run build:benchmark` additionally enables local benchmark
+controls and the exact loopback collector permission `http://localhost:4318/*`.
+It adopts only DevOps benchmark sessions, retains tokens in memory, limits audio
+to one permitted upload per trial, and measures visible answer text after React
+commits. Normal builds omit the benchmark controls and collector permission.
+See [benchmark operation](../benchmarks/README.md) for capture authorization,
+clock/visibility limits and reporting semantics.
+
 Development-only controls may include:
 - manual question field
 - synthetic test audio

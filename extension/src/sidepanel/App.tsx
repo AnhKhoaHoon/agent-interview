@@ -16,6 +16,8 @@ import { DevQuestionForm } from './components/DevQuestionForm';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Header } from './components/Header';
 import { CandidateContextControls } from './components/CandidateContextControls';
+import { BenchmarkControls } from '../benchmark/BenchmarkControls';
+import { BENCHMARK_BUILD, benchmarkEvent, permitBenchmarkSegment, type BenchmarkTrial } from '../benchmark/client';
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
@@ -120,10 +122,12 @@ export function App(): JSX.Element {
     }
     try {
       const speechEndedAtMs = toEpochMs(segment.speechEndedAtMs);
+      benchmarkEvent('segment', { speechEndedAtMs, uploadStartedAtMs: Date.now(), segmentId: temporaryId });
       const transcript = await uploadTranscription(
         activeSession.id, segment.audio, segment.durationMs, temporaryId, speechEndedAtMs, language, activeSession.accessToken
       );
       speechEndedAtByQuestionIdRef.current.set(transcript.questionId, speechEndedAtMs);
+      benchmarkEvent('transcribed', { questionId: transcript.questionId });
       pendingSegmentsRef.current.delete(temporaryId);
       dispatch({
         type: 'transcribed',
@@ -131,6 +135,7 @@ export function App(): JSX.Element {
         message: { id: transcript.messageId, role: 'interviewer', content: transcript.text, ...(transcript.understoodText ? { understoodText: transcript.understoodText } : {}) }
       });
     } catch (error) {
+      benchmarkEvent('transcription-error', { code: error instanceof ApiClientError ? error.response.code : 'NETWORK_ERROR' });
       const retryable = error instanceof ApiClientError ? error.response.retryable : true;
       if (!retryable) pendingSegmentsRef.current.delete(temporaryId);
       dispatch({ type: 'transcription-error', temporaryId, message: `Transcription failed: ${errorMessage(error)}`, retryable });
@@ -138,10 +143,13 @@ export function App(): JSX.Element {
   }, []);
 
   const queueSegmentForTranscription = useCallback((segment: FinalizedAudioSegment) => {
-    const temporaryId = crypto.randomUUID();
-    pendingSegmentsRef.current.set(temporaryId, segment);
-    dispatch({ type: 'transcribing', temporaryId });
-    void sendSegmentForTranscription(temporaryId, segment, transcriptionLanguageRef.current);
+    void (async () => {
+      if (BENCHMARK_BUILD && !(await permitBenchmarkSegment())) return;
+      const temporaryId = crypto.randomUUID();
+      pendingSegmentsRef.current.set(temporaryId, segment);
+      dispatch({ type: 'transcribing', temporaryId });
+      await sendSegmentForTranscription(temporaryId, segment, transcriptionLanguageRef.current);
+    })();
   }, [sendSegmentForTranscription]);
 
   const retryTranscription = useCallback((temporaryId: string) => {
@@ -516,8 +524,19 @@ export function App(): JSX.Element {
   }, [closeEventSource]);
 
   const formDisabled = !session || state.status === 'thinking' || state.status === 'streaming';
+  const adoptBenchmarkTrial = async (trial: BenchmarkTrial): Promise<void> => {
+    if (sessionRef.current?.id !== trial.session.id) {
+      dispatch({ type: 'reset' });
+      sessionRef.current = trial.session;
+      setSession(trial.session);
+      connect(trial.session.id, trial.session.accessToken);
+      if (captureRef.current?.activeStream()) await startListening();
+    }
+    changeTranscriptionLanguage(trial.language);
+  };
   return (
     <div className="app-shell">
+      {BENCHMARK_BUILD && <BenchmarkControls onTrial={adoptBenchmarkTrial} ready={Boolean(session) && interviewerListening && state.status === 'connected'} />}
       <Header
         status={state.status}
         hasSession={Boolean(session)}

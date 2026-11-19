@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { BENCHMARK_BUILD, reportFirstVisible } from '../../benchmark/client';
 import type { ChatMessage } from '../../types/interview';
 
 interface ChatBubbleProps {
@@ -8,6 +10,11 @@ interface ChatBubbleProps {
 }
 
 export function ChatBubble({ message, onRetryTranscription, onRetryAnswer, onCancelQuestion }: ChatBubbleProps): JSX.Element {
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const hasAnswer = message.role === 'assistant' && Boolean(message.content);
+  useEffect(() => {
+    if (BENCHMARK_BUILD && hasAnswer && message.questionId && contentRef.current) return reportFirstVisible(contentRef.current, message.questionId);
+  }, [hasAnswer, message.questionId]);
   const isInterviewer = message.role === 'interviewer';
   const label = isInterviewer ? 'Interviewer' : 'AI answer';
   const detail = isInterviewer
@@ -23,7 +30,7 @@ export function ChatBubble({ message, onRetryTranscription, onRetryAnswer, onCan
         </span>
         {message.status === 'streaming' && <span className="streaming-indicator" aria-label="Answer is streaming"><i /><i /><i /></span>}
       </header>
-      <p>{message.content || '…'}</p>
+      <p ref={contentRef}>{message.content || '…'}</p>
       {isInterviewer && message.understoodText && (
         <p className="transcript-interpretation"><small>Interpreted for the answer</small>{message.understoodText}</p>
       )}

@@ -1,5 +1,15 @@
 # Testing Strategy
 
+## Real-provider DevOps baseline
+
+The bounded benchmark in [benchmarks/README.md](../benchmarks/README.md) runs
+30 bilingual DevOps fixtures three times through text, then user-authorized
+Chrome tab audio. It exports all planned attempts, failures, missing timings,
+rubric screening and separately reviewed quality verdicts to JSON/CSV/Markdown.
+The benchmark build instruments first-visible text without changing provider
+models or prompts. A successful text run does not establish audio performance
+or technical correctness; those require their own measurements and review.
+
 ## Unit tests
 
 Backend:
